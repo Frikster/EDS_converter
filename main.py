@@ -83,13 +83,33 @@ for ind in range(len(my_data)):
         end_date_found = True
         dates_count = 1
     else:
-        if end_date_found and len(elem) >= 6:
+        if end_date_found and (len(elem) >= 6 or elem in date_replacements):
             dates_count = dates_count + 1
 
-print('here')
+#dates_counts
+#end_date_inds
 
-
-
+# Concatenate end_dates properly
+for ind in range(len(end_date_inds)):
+    date_elem = my_data[end_date_inds[ind]]
+    date_elem = date_elem.replace(' ', '')
+    date_count = dates_counts[ind]
+    if date_count > 1:
+        if (len(date_elem) / (date_count-1)) != 6:
+            possible_date_concat = True
+            date_ind = end_date_inds[ind] + 1
+            add_on = ''
+            modifier = 2
+            while possible_date_concat:
+                add_on = add_on + my_data[date_ind]
+                if((len(date_elem) + len(add_on)) / (date_count-modifier) == 6):
+                    possible_date_concat = False
+                    my_data[end_date_inds[ind]] = date_elem + add_on
+                    for i in range(end_date_inds[ind]+1, date_ind+1):
+                        my_data[i] = ''
+                date_ind = date_ind + 1
+                modifier = modifier + 1
+                assert(date_ind < end_date_inds[ind+1]) #Otherwise you're overlapping with another date!
 
 while ind < len(my_data):
     if ind == 1749:
