@@ -52,6 +52,17 @@ my_data = filter(None, my_data)
 # get rid of trailing whitespaces
 for ind in range(len(my_data)):
     my_data[ind] = my_data[ind].strip()
+
+# Remove all non-date numbers
+for ind in range(len(my_data)):
+    if (len(my_data[ind]) < 6):
+        try:
+            int(my_data[ind].replace(' ', ''))
+            print("Deleting " + str(my_data[ind]) + " at index " + str(ind) + " with len " + str(len(my_data[ind])))
+            my_data[ind] = ''
+        except:
+            continue
+
 # Delete all empty elements
 my_data = [val for val in my_data if val != '']
 
@@ -86,22 +97,24 @@ for ind in range(len(my_data)):
         if end_date_found and (len(elem) >= 6 or elem in date_replacements):
             dates_count = dates_count + 1
 
-#dates_counts
-#end_date_inds
-
 # Concatenate end_dates properly
 for ind in range(len(end_date_inds)):
     date_elem = my_data[end_date_inds[ind]]
     date_elem = date_elem.replace(' ', '')
     date_count = dates_counts[ind]
     if date_count > 1:
-        if (len(date_elem) / (date_count-1)) != 6:
+        if (len(date_elem) / (date_count-1)) < 6:
             possible_date_concat = True
             date_ind = end_date_inds[ind] + 1
             add_on = ''
             modifier = 2
             while possible_date_concat:
                 add_on = add_on + my_data[date_ind]
+                if(date_count-modifier) <= 0:
+                    print("Unsolvable problem at end_date " + date_elem + " at index " + str(end_date_inds[ind]) +
+                          " skipping...")
+                    break
+                assert((date_count-modifier) > 0)
                 if((len(date_elem) + len(add_on)) / (date_count-modifier) == 6):
                     possible_date_concat = False
                     my_data[end_date_inds[ind]] = date_elem + add_on
@@ -109,73 +122,112 @@ for ind in range(len(end_date_inds)):
                         my_data[i] = ''
                 date_ind = date_ind + 1
                 modifier = modifier + 1
-                assert(date_ind < end_date_inds[ind+1]) #Otherwise you're overlapping with another date!
+                if (ind+1) < len(end_date_inds):
+                    assert(date_ind < end_date_inds[ind+1]) # Otherwise you're overlapping with another date!
 
-while ind < len(my_data):
-    if ind == 1749:
-        elem = my_data[ind]
+my_data = [val for val in my_data if val != '']
+
+# Recompute date count but for start_dates
+# Recompute indices for end dates since you changed the array one line up
+end_date_inds = []
+start_dates_counts = []
+end_date_found = False
+start_dates_count = 0
+for ind in range(len(my_data)):
     elem = my_data[ind]
     elem = elem.replace(' ', '')
-    # a flag that tracks whether end_dates might need more concatenation from a six-length element
-    possible_date_concat = True
-    if len(elem) >= 6 or elem in date_replacements:
-        try:
-            int_check = int(elem)
-        except:
-            ind = ind + 1
+    try:
+        int(elem)
+    except:
+        if elem not in date_replacements:
+            end_date_found = False
+            if start_dates_count > 0:
+                start_dates_counts = start_dates_counts + [start_dates_count - 1]
+                assert(len(start_dates_counts) == len(end_date_inds))
+                start_dates_count = 0
             continue
-        end_date_length = len(elem)
-        end_date = elem
-        date_elems_ind = ind
-        date_elems = True
-        start_date_count = 0
-        # Count all confirmed start_dates following end_date_combo and add parts to end_date
-        while date_elems:
-            date_elems_ind = date_elems_ind + 1
-            date_elem = my_data[date_elems_ind]
-            try:
-                int_check = int(date_elem)
-            except:
-                if date_elem not in date_replacements:
-                    date_elems = False
-            if date_elems:
-                if len(date_elem) == 6 or date_elem in date_replacements:
-                    date_elems_ind_check_ahead = date_elems_ind
-                    while possible_date_concat:
-                        date_elem_check_ahead = my_data[date_elems_ind_check_ahead]
-                        try:
-                            int_check = int(date_elem_check_ahead)
-                        except:
-                            possible_date_concat = False
-                            continue
+    # Logically if you are here elem is an integer or in date_replacements
+    if not end_date_found and len(elem) >= 6:
+        end_date_inds = end_date_inds + [ind]
+        end_date_found = True
+        start_dates_count = 1
+    else:
+        if end_date_found and (len(elem) >= 6 or elem in date_replacements):
+            start_dates_count = start_dates_count + 1
+
+col_names = ['center_pt_number', 'drug', 'start_date', 'end_date', 'dose', 'reason', 'conclusion']
+center_pt_number = []
+drug = []
+start_date = []
+end_date = []
+dose = []
+reason = []
+conclusion = []
+
+row = []
+rows = [col_names]
+for ind in range(len(end_date_inds)):
+    elem = my_data[end_date_inds[ind]]
+    start_date_count = start_dates_counts[ind]
 
 
 
-                #         my_data[date_elems_ind]
-                #
-                #
-                #     if possible_date_concat:
-                #         date_elem_check_ahead = my_data[date_elems_ind_check_ahead]
-                #
-                #
-                #     if (end_date_length / start_date_count) == 6:
-                #
-                # if len(date_elem) > 6 and date_elem not in date_replacements:
-                #     end_date = end_date + date_elem
-                #     my_data[date_elems_ind] = ''
-                #     end_date_length = len(end_date)
-                # if len(date_elem) == 6 or date_elem in date_replacements:
-                #     start_date_count = start_date_count + 1
 
-        if (end_date_length / start_date_count) == 6:
-            my_data[ind] = end_date
+    if start_date_count_left <= 0:
+        print("Deleting start_date_counts " + str(start_date_counts_copy[0]))
+        del start_date_counts_copy[0]
+    my_data[ind] = my_data[ind].strip()
+    elem = my_data[ind]
+    if len(row) == 0:
+        if is_center_pt_number(elem):
+            center_pt_number = center_pt_number + elem
         else:
-            raise AssertionError("Cannot be fixed with concatenation")
-        ind = ind + start_date_count
-    ind = ind + 1
+            center_pt_number = center_pt_number + ' '
 
+        start_dates_found = True
+        for i in range(ind,ind+start_date_count_left):
+            if is_date(my_data[i]):
+                start_dates_found = True
+            else:
+                start_dates_found = False
 
-print('boo-yah')
+        if start_dates_found:
+            # Add drugs first
+            next_ind = ind - start_date_counts_copy[0]
+            row = row + my_data[next_ind]
+            drug = drug + my_data[next_ind]
+            next_ind = ind + start_date_counts_copy[0]
+
+            if is_date(my_data[next_ind]):
+                row = row + my_data[next_ind]
+                start_date = start_date + my_data[next_ind]
+                next_ind = next_ind + start_date_counts_copy[0]
+
+                if is_date(my_data[next_ind]):
+                    row = row + my_data[next_ind]
+                    end_date = end_date + my_data[next_ind]
+                    next_ind = next_ind + start_date_counts_copy[0]
+
+                    # add rest without concrete checks...
+                    row = row + my_data[next_ind]
+                    dose = dose + my_data[next_ind]
+                    next_ind = next_ind + start_date_counts_copy[0]
+                    row = row + my_data[next_ind]
+                    reason = reason + my_data[next_ind]
+                    next_ind = next_ind + start_date_counts_copy[0]
+                    row = row + my_data[next_ind]
+                    conclusion = conclusion + my_data[next_ind]
+                    next_ind = next_ind + start_date_counts_copy[0]
+
+                    print("ROW COMPLETE: " + str(row))
+                    rows = rows + [row]
+                    row = []
+                    start_date_count_left = start_date_count_left - 1
+                else:
+                    raise AssertionError("end_date not found at index " + str(ind))
+            else:
+                raise AssertionError("start_date not found at index " + str(ind))
+
 
 
 
@@ -255,111 +307,31 @@ print('boo-yah')
     #                 else:
     #                     raise AssertionError("Cannot be fixed with one concatenation")
 
-# Delete all empty elements
-my_data = [val for val in my_data if val != '']
+start_date_counts_copy = start_date_counts[:]
+# Use those start_date_counts to correctly split all the end_date_counts
+for ind in range(len(my_data)):
+    elem = my_data[ind]
+    elem = elem.replace(' ','')
+    if len(elem) == 6*start_date_counts_copy[0]:
+        try:
+            int_check = int(elem)
+        except ValueError:
+            continue
+        end_date_split = textwrap.wrap(elem, 6)
+        print("Deleting " + str(my_data[ind]) + " at index " + str(ind))
+        del my_data[ind]
+        print("Inserting " + str(end_date_split) + " at index " + str(ind))
+        for i in reversed(end_date_split):
+            my_data.insert(ind, i)
+        del start_date_counts_copy[0]
 
-# start_date_counts_copy = start_date_counts[:]
-# # Use those start_date_counts to correctly split all the end_date_counts
-# for ind in range(len(my_data)):
-#     elem = my_data[ind]
-#     elem = elem.replace(' ','')
-#     if len(elem) == 6*start_date_counts_copy[0]:
-#         try:
-#             int_check = int(elem)
-#         except ValueError:
-#             continue
-#         end_date_split = textwrap.wrap(elem, 6)
-#         print("Deleting " + str(my_data[ind]) + " at index " + str(ind))
-#         del my_data[ind]
-#         print("Inserting " + str(end_date_split) + " at index " + str(ind))
-#         for i in reversed(end_date_split):
-#             my_data.insert(ind, i)
-#         del start_date_counts_copy[0]
-#
-# # Remove all whitespaces and non-date numbers
-# for ind in range(len(my_data)):
-#     if (len(my_data[ind]) < 6 or len(my_data[ind]) > 6):
-#         try:
-#             int(my_data[ind].replace(' ', ''))
-#             print("Deleting " + str(my_data[ind]) + " at index " + str(ind) + " with len " + str(len(my_data[ind])))
-#             my_data[ind] = ''
-#         except:
-#             continue
-# for ind in range(len(my_data)):
-#     if my_data[ind] == '':
-#         #print("Deleting " + str(my_data[ind]) + " at index " + str(ind))
-#         del my_data[ind]
-#
-# for ind in range(len(my_data)):
-#     if my_data[ind] == '':
-#         print('OH SHIT')
-#
-# col_names = ['center_pt_number','drug','start_date','end_date','dose','reason','conclusion']
-# center_pt_number = []
-# drug = []
-# start_date = []
-# end_date = []
-# dose = []
-# reason = []
-# conclusion = []
-#
-# #df_ = pd.DataFrame(index=len(my_data), columns=col_names)
-# start_date_counts_copy = start_date_counts[:]
-# rows = [col_names]
-# row = []
-# start_date_count_left = start_date_counts_copy[0]
-# for ind in range(len(my_data)):
-#     if start_date_count_left <= 0:
-#         print("Deleting start_date_counts " + str(start_date_counts_copy[0]))
-#         del start_date_counts_copy[0]
-#     my_data[ind] = my_data[ind].strip()
-#     elem = my_data[ind]
-#     if len(row) == 0:
-#         if is_center_pt_number(elem):
-#             center_pt_number = center_pt_number + elem
-#         else:
-#             center_pt_number = center_pt_number + ' '
-#
-#         start_dates_found = True
-#         for i in range(ind,ind+start_date_count_left):
-#             if is_date(my_data[i]):
-#                 start_dates_found = True
-#             else:
-#                 start_dates_found = False
-#
-#         if start_dates_found:
-#             # Add drugs first
-#             next_ind = ind - start_date_counts_copy[0]
-#             row = row + my_data[next_ind]
-#             drug = drug + my_data[next_ind]
-#             next_ind = ind + start_date_counts_copy[0]
-#
-#             if is_date(my_data[next_ind]):
-#                 row = row + my_data[next_ind]
-#                 start_date = start_date + my_data[next_ind]
-#                 next_ind = next_ind + start_date_counts_copy[0]
-#
-#                 if is_date(my_data[next_ind]):
-#                     row = row + my_data[next_ind]
-#                     end_date = end_date + my_data[next_ind]
-#                     next_ind = next_ind + start_date_counts_copy[0]
-#
-#                     # add rest without concrete checks...
-#                     row = row + my_data[next_ind]
-#                     dose = dose + my_data[next_ind]
-#                     next_ind = next_ind + start_date_counts_copy[0]
-#                     row = row + my_data[next_ind]
-#                     reason = reason + my_data[next_ind]
-#                     next_ind = next_ind + start_date_counts_copy[0]
-#                     row = row + my_data[next_ind]
-#                     conclusion = conclusion + my_data[next_ind]
-#                     next_ind = next_ind + start_date_counts_copy[0]
-#
-#                     print("ROW COMPLETE: " + str(row))
-#                     rows = rows + [row]
-#                     row = []
-#                     start_date_count_left = start_date_count_left - 1
-#                 else:
-#                     raise AssertionError("end_date not found at index " + str(ind))
-#             else:
-#                 raise AssertionError("start_date not found at index " + str(ind))
+# Remove all non-date numbers
+for ind in range(len(my_data)):
+    if (len(my_data[ind]) < 6 or len(my_data[ind]) > 6):
+        try:
+            int(my_data[ind].replace(' ', ''))
+            print("Deleting " + str(my_data[ind]) + " at index " + str(ind) + " with len " + str(len(my_data[ind])))
+            my_data[ind] = ''
+        except:
+            continue
+
