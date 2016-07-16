@@ -16,9 +16,9 @@ import csv
 
 absDirPath = os.path.dirname(__file__)
 
-class Example(QtGui.QMainWindow):
+class MainWindow(QtGui.QMainWindow):
     def __init__(self):
-        super(Example, self).__init__()
+        super(MainWindow, self).__init__()
         self.initUI()
 
     def initUI(self):
@@ -98,6 +98,7 @@ class Example(QtGui.QMainWindow):
                 if end_date_found and (len(elem) >= 6 or elem in date_replacements):
                     dates_count = dates_count + 1
 
+        problem_inds = []
         # Concatenate end_dates properly
         for ind in range(len(end_date_inds)):
             date_elem = my_data[end_date_inds[ind]]
@@ -115,6 +116,7 @@ class Example(QtGui.QMainWindow):
                             print(
                             "Unsolvable problem at end_date " + date_elem + " at index " + str(end_date_inds[ind]) +
                             " skipping...")
+                            problem_inds = problem_inds + [end_date_inds[ind]]
                             break
                         assert ((date_count - modifier) > 0)
                         if ((len(date_elem) + len(add_on)) / (date_count - modifier) == 6):
@@ -161,24 +163,19 @@ class Example(QtGui.QMainWindow):
                 if end_date_found and (len(elem) >= 6 or elem in date_replacements):
                     start_dates_count = start_dates_count + 1
 
-        # center_pt_number
         col_names = ['drug', 'end_date', 'start_date', 'dose', 'reason', 'conclusion']
-        center_pt_number = []
-        drug = []
-        end_date = []
-        start_date = []
-        dose = []
-        reason = []
-        conclusion = []
-
         rows = [col_names]
+        problem_rows = []
         # add drug, end_date, start_dates, doses, reasons and conclusion columns first
         for ind in range(len(end_date_inds)):
+            problem_row = False
             start_ind = end_date_inds[ind]
             end_date_ind = end_date_inds[ind]
             start_date_count = start_dates_counts[ind]
             # Find the first drug for this set
             end_date = my_data[start_ind]
+            if start_ind in problem_inds:
+                problem_row = True
             for i in range(1, start_date_count + 1):
                 start_ind = start_ind + i
                 drug = my_data[end_date_ind - start_date_count + 1]
@@ -186,6 +183,8 @@ class Example(QtGui.QMainWindow):
                 for j in range(start_ind, start_ind + (start_date_count * 4), start_date_count):
                     row = row + [my_data[j]]
                 rows = rows + [[drug, end_date] + row]
+                if problem_row:
+                    problem_rows = problem_rows + [[(len(rows)-1)]]
 
         output_file_name = fname[:-4]
         output_file_name = output_file_name + '_csv.csv'
@@ -193,27 +192,30 @@ class Example(QtGui.QMainWindow):
             writer = csv.writer(f)
             writer.writerows(rows)
 
-        out_f = open(output_file_name, 'r')
+        problems_file_name = fname[:-4]
+        problems_file_name = problems_file_name + '_problem_rows.csv'
+        with open(problems_file_name, "wb") as f:
+            writer = csv.writer(f)
+            writer.writerows(problem_rows)
 
+        # Display output
+        out_f = open(output_file_name, 'r')
         with out_f:
             data = out_f.read()
             self.textEdit.setText(data)
         w = QWidget()
         QMessageBox.information(w, "Conversion Complete", "csv saved to " + output_file_name)
-
-    # def showDialog(self):
-    #     fname = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
-    #                                               '/home')
-    #     f = open(fname, 'r')
-    #     with f:
-    #         data = f.read()
-    #         self.textEdit.setText(data)
+        w = QWidget()
+        QMessageBox.information(w, "Conversion Complete", "Problem rows saved to " + problems_file_name)
 
 
 def main():
     app = QtGui.QApplication(sys.argv)
-    ex = Example()
-    sys.exit(app.exec_())
+    window = MainWindow()
+    window.show()
+    app.exec_()
+
+   # sys.exit(app.exec_())
 
 
 if __name__ == '__main__':
