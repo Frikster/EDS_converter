@@ -208,15 +208,9 @@ class MainWindow(QtGui.QMainWindow):
         w = QWidget()
         QMessageBox.information(w, "Conversion Complete", "Problem rows saved to " + problems_file_name)
 
-
-def main():
+if __name__ == '__main__':
     app = QtGui.QApplication(sys.argv)
     window = MainWindow()
     window.show()
     app.exec_()
-
-   # sys.exit(app.exec_())
-
-
-if __name__ == '__main__':
-    main()
+    sys.exit(app.exec_())
