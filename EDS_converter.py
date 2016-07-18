@@ -214,7 +214,7 @@ class MainWindow(QtGui.QMainWindow):
                 problem_row = True
             for i in range(1, start_date_count + 1):
                 start_ind = start_ind + i
-                drug = my_data[end_date_ind - start_date_count + 1]
+                drug = my_data[end_date_ind - start_date_count]
                 row = []
                 for j in range(start_ind, start_ind + (start_date_count * 4), start_date_count):
                     row = row + [my_data[j]]
