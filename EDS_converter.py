@@ -40,6 +40,22 @@ class MainWindow(QtGui.QMainWindow):
         self.setWindowTitle('EDS Converter')
         self.show()
 
+    def is_center_pt_number(self, elem):
+        if '-' in elem:
+            elem_split = elem.split('-')
+            if len(elem_split[0]) != 6:
+                return False
+            try:
+                center = int(elem_split[0])
+            except ValueError:
+                return False
+            try:
+                pt_number = int(elem_split[1])
+            except ValueError:
+                if len(elem_split[1]) > 0:
+                    return True
+        return False
+
     def eds_conversion(self):
         fname = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
                                                   '/home')
@@ -135,14 +151,19 @@ class MainWindow(QtGui.QMainWindow):
         # Recompute date count but for start_dates
         # Recompute indices for end dates since you changed the array one line up
         # Find where the dates end in each case
+        # also find pt_number_center_inds
         end_date_inds = []
         end_of_dates_inds = []
         start_dates_counts = []
         end_date_found = False
         start_dates_count = 0
+        pt_number_center_inds = []
         for ind in range(len(my_data)):
             elem = my_data[ind]
             elem = elem.replace(' ', '')
+            # add pt_number_center
+            if self.is_center_pt_number(elem):
+                pt_number_center_inds = pt_number_center_inds + [ind]
             try:
                 int(elem)
             except:
@@ -163,14 +184,29 @@ class MainWindow(QtGui.QMainWindow):
                 if end_date_found and (len(elem) >= 6 or elem in date_replacements):
                     start_dates_count = start_dates_count + 1
 
-        col_names = ['drug', 'end_date', 'start_date', 'dose', 'reason', 'conclusion']
+        col_names = ['pt_number_center', 'drug', 'end_date', 'start_date', 'dose', 'reason', 'conclusion']
         rows = [col_names]
         problem_rows = []
+        pt_number_center_inds_ind = 0
         # add drug, end_date, start_dates, doses, reasons and conclusion columns first
         for ind in range(len(end_date_inds)):
             problem_row = False
             start_ind = end_date_inds[ind]
             end_date_ind = end_date_inds[ind]
+            if pt_number_center_inds_ind < len(pt_number_center_inds)-1:
+                if end_date_ind > pt_number_center_inds[pt_number_center_inds_ind]\
+                        and end_date_ind < pt_number_center_inds[pt_number_center_inds_ind+1]:
+                    pt_number_center = my_data[pt_number_center_inds[pt_number_center_inds_ind]]
+                else:
+                    pt_number_center_inds_ind = pt_number_center_inds_ind + 1
+                    if pt_number_center_inds_ind < len(pt_number_center_inds) - 1:
+                        if(end_date_ind > pt_number_center_inds[pt_number_center_inds_ind]\
+                            and end_date_ind < pt_number_center_inds[pt_number_center_inds_ind+1]):
+                            pt_number_center = my_data[pt_number_center_inds[pt_number_center_inds_ind]]
+                    else:
+                        assert (pt_number_center_inds_ind == len(pt_number_center_inds) - 1)
+            else:
+                assert(pt_number_center_inds_ind == len(pt_number_center_inds)-1)
             start_date_count = start_dates_counts[ind]
             # Find the first drug for this set
             end_date = my_data[start_ind]
@@ -182,9 +218,19 @@ class MainWindow(QtGui.QMainWindow):
                 row = []
                 for j in range(start_ind, start_ind + (start_date_count * 4), start_date_count):
                     row = row + [my_data[j]]
-                rows = rows + [[drug, end_date] + row]
+                rows = rows + [[pt_number_center, drug, end_date] + row]
                 if problem_row:
                     problem_rows = problem_rows + [[(len(rows)-1)]]
+
+        # add pt_number_center
+        # pt_number_center_inds = []
+        # for ind in range(len(my_data)):
+        #     elem = my_data[ind]
+        #     if self.is_center_pt_number(elem):
+        #         pt_number_center_inds = pt_number_center_inds + ind
+
+
+
 
         output_file_name = fname[:-4]
         output_file_name = output_file_name + '_csv.csv'
