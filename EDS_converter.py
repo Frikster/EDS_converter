@@ -184,7 +184,7 @@ class MainWindow(QtGui.QMainWindow):
                 if end_date_found and (len(elem) >= 6 or elem in date_replacements):
                     start_dates_count = start_dates_count + 1
 
-        col_names = ['pt_number_center', 'drug', 'end_date', 'start_date', 'dose', 'reason', 'conclusion']
+        col_names = ['pt_number_center', 'drug', 'end_date', 'start_date', 'dose', 'dosing', 'reason', 'conclusion']
         rows = [col_names]
         problem_rows = []
         pt_number_center_inds_ind = 0
@@ -213,10 +213,12 @@ class MainWindow(QtGui.QMainWindow):
             if start_ind in problem_inds:
                 problem_row = True
             for i in range(1, start_date_count + 1):
-                start_ind = start_ind + i
-                drug = my_data[end_date_ind - start_date_count]
+                drug_ref_inds = list(reversed(range(1, start_date_count + 1)))
+                drug_ref_ind = drug_ref_inds[i-1]
+                drug = my_data[end_date_ind - drug_ref_ind]
+                start_ind = end_date_ind + i
                 row = []
-                for j in range(start_ind, start_ind + (start_date_count * 4), start_date_count):
+                for j in range(start_ind, start_ind + (start_date_count * 5), start_date_count):
                     row = row + [my_data[j]]
                 rows = rows + [[pt_number_center, drug, end_date] + row]
                 if problem_row:
