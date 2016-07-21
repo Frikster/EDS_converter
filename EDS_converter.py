@@ -13,6 +13,7 @@ import sys, os
 from PyQt4 import QtGui
 from PyQt4.QtGui import *
 import csv
+import textwrap
 
 absDirPath = os.path.dirname(__file__)
 
@@ -224,15 +225,54 @@ class MainWindow(QtGui.QMainWindow):
                 if problem_row:
                     problem_rows = problem_rows + [[(len(rows)-1)]]
 
-        # add pt_number_center
-        # pt_number_center_inds = []
-        # for ind in range(len(my_data)):
-        #     elem = my_data[ind]
-        #     if self.is_center_pt_number(elem):
-        #         pt_number_center_inds = pt_number_center_inds + ind
+        # Split the end_dates and add e
+        for ind in range(len(rows)):
+            if rows[ind][2] == 'end_date':
+                continue
+            end_dates = textwrap.wrap(rows[ind][2], 6)
+            assert([len(x) == 6 for x in end_dates])
+            rows[ind].insert(2, end_dates)
+            del rows[ind][3]
 
+        # Add only one of split dates to each row
+        row_ind = 0
+        while row_ind < len(rows):
+            if row_ind < 1 or row_ind >= len(rows)-1:
+                row_ind = row_ind + 1
+                continue
+            end_date_total = len(rows[row_ind][2])
+            for end_date_no in range(len(rows[row_ind][2])):
+                try:
+                    rows[row_ind + end_date_no][2] = rows[row_ind + end_date_no][2][end_date_no]
+                except:
+                    print("WARNING: Unexpected End_Date length on row " + str(row_ind + end_date_no) +
+                          " Using first available date here")
+                    rows[row_ind + end_date_no][2] = rows[row_ind + end_date_no][2][0]
+                    problem_rows = problem_rows + [[row_ind + end_date_no]]
+            row_ind = row_ind + end_date_total
 
-
+        # new_end_date_rows = []
+        # last_end_date = ''
+        # end_date = rows[ind][2]
+        # if (last_end_date != end_date and len(end_date) >= 6) or last_end_date == end_date:
+        #     end_date_ind = ind
+        #     last_end_date = end_date
+        #     new_end_date_rows = new_end_date_rows + [ind]
+        #
+        # # flatten each row
+        # for outer_ind in range(len(new_end_date_rows)):
+        #     row_ind = new_end_date_rows[outer_ind]
+        #     for end_date_no in range(len(rows[row_ind][2])):
+        #         # This if statement checks if you're at the end of the list
+        #         if row_ind+end_date_no < range(len(rows[row_ind][2]))[-1]:
+        #             if row_ind+end_date_no >= new_end_date_rows[outer_ind+1]:
+        #                 continue
+        #         if not isinstance(rows[row_ind+end_date_no][2], str):
+        #             rows[row_ind+end_date_no][2] = rows[row_ind+end_date_no][2][end_date_no]
+        #             if row_ind+end_date_no > 1:
+        #                 assert(len(rows[row_ind+end_date_no-1][2]) == 6)
+        #         else:
+        #             problem_rows = problem_rows + [[row_ind+end_date_no]]
 
         output_file_name = fname[:-4]
         output_file_name = output_file_name + '_csv.csv'
