@@ -63,7 +63,8 @@ class MainWindow(QtGui.QMainWindow):
 
         lol = list(csv.reader(open(fname, 'rb'), delimiter='\t'))
         lol = [item for sublist in lol for item in sublist]
-        my_data = [x.split("    ") for x in lol]
+        # Choose splitting criteria carefully... 2 spaces? 4 spaces?
+        my_data = [x.split("  ") for x in lol]
         my_data = [item for sublist in my_data for item in sublist]
         my_data = filter(None, my_data)
         # get rid of trailing whitespaces
@@ -72,7 +73,8 @@ class MainWindow(QtGui.QMainWindow):
 
         # Remove all non-date numbers
         for ind in range(len(my_data)):
-            if (len(my_data[ind]) < 6):
+            n_spaces = my_data[ind].count(' ')
+            if (len(my_data[ind]) < 6) or n_spaces > 2:
                 try:
                     int(my_data[ind].replace(' ', ''))
                     print(
@@ -85,7 +87,8 @@ class MainWindow(QtGui.QMainWindow):
         my_data = [val for val in my_data if val != '']
 
         # Split all the end_dates correctly
-        # dates are often replaced with 'U' or 'CON' for unknown reasons
+        # dates are often replaced with 'U' or 'CON'
+        # CON = continuous as in ongoing
         date_replacements = ['CON', 'U']
         ind = 0
         dates_counts = []
@@ -185,7 +188,7 @@ class MainWindow(QtGui.QMainWindow):
                 if end_date_found and (len(elem) >= 6 or elem in date_replacements):
                     start_dates_count = start_dates_count + 1
 
-        col_names = ['pt_number_center', 'drug', 'end_date', 'start_date', 'dose', 'dosing', 'reason', 'conclusion']
+        col_names = ['pt_number_center', 'drug', 'start_date', 'end_date', 'dose', 'dosing', 'reason', 'conclusion']
         rows = [col_names]
         problem_rows = []
         pt_number_center_inds_ind = 0
@@ -227,7 +230,7 @@ class MainWindow(QtGui.QMainWindow):
 
         # Split the end_dates and add e
         for ind in range(len(rows)):
-            if rows[ind][2] == 'end_date':
+            if rows[ind][2] == 'start_date':
                 continue
             end_dates = textwrap.wrap(rows[ind][2], 6)
             assert([len(x) == 6 for x in end_dates])
