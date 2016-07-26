@@ -79,7 +79,8 @@ class MainWindow(QtGui.QMainWindow):
                     int(my_data[ind].replace(' ', ''))
                     print(
                     "Deleting " + str(my_data[ind]) + " at index " + str(ind) + " with len " + str(len(my_data[ind])))
-                    my_data[ind] = ''
+                    # Create a boundary between Dosage and Reason
+                    my_data[ind] = '__Dosage_Reason__'
                 except:
                     continue
 
@@ -222,11 +223,29 @@ class MainWindow(QtGui.QMainWindow):
                 drug = my_data[end_date_ind - drug_ref_ind]
                 start_ind = end_date_ind + i
                 row = []
-                for j in range(start_ind, start_ind + (start_date_count * 5), start_date_count):
+                entered_reason = False
+                start_ind_reason = start_ind + (start_date_count * 3)
+                assert(len(range(start_ind, start_ind + (start_date_count * 3), start_date_count)) == 3)
+                for j in range(start_ind, start_ind + (start_date_count * 3), start_date_count):
+                    if my_data[j] == '__Dosage_Reason__' or entered_reason:
+                        if my_data[j] == '__Dosage_Reason__':
+                            start_ind_reason = j
+                        entered_reason = True
+                        row = row + ['Missing']
+                        problem_row = True
+                    else:
+                        row = row + [my_data[j]]
+                assert(len(range(start_ind_reason + i, (start_ind_reason + i) + (start_date_count * 2), start_date_count)) == 2)
+                for j in range(start_ind_reason + i, (start_ind_reason + 1) + (start_date_count * 2), start_date_count):
+                    if j == start_ind_reason:
+                        assert(my_data[j - 1] == '__Dosage_Reason__')
                     row = row + [my_data[j]]
+                assert(len([pt_number_center, drug, end_date] + row) == len(col_names))
                 rows = rows + [[pt_number_center, drug, end_date] + row]
                 if problem_row:
                     problem_rows = problem_rows + [[(len(rows)-1)]]
+                    problem_row = False
+
 
         # Split the end_dates and add e
         for ind in range(len(rows)):
