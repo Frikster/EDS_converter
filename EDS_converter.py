@@ -195,6 +195,8 @@ class MainWindow(QtGui.QMainWindow):
         pt_number_center_inds_ind = 0
         # add drug, end_date, start_dates, doses, reasons and conclusion columns first
         for ind in range(len(end_date_inds)):
+            # flag to ensure th boundary between dosing and reason is found
+            started_at_boundary = False
             problem_row = False
             start_ind = end_date_inds[ind]
             end_date_ind = end_date_inds[ind]
@@ -224,28 +226,34 @@ class MainWindow(QtGui.QMainWindow):
                 start_ind = end_date_ind + i
                 row = []
                 entered_reason = False
+                # This fucker changes on each iteration of the loop :(
                 start_ind_reason = start_ind + (start_date_count * 3)
                 assert(len(range(start_ind, start_ind + (start_date_count * 3), start_date_count)) == 3)
-                for j in range(start_ind, start_ind + (start_date_count * 3), start_date_count):
-                    if my_data[j] == '__Dosage_Reason__' or entered_reason:
+                for j in range(start_ind, start_ind + (start_date_count * 3)):
+                    if (j < start_ind_reason - i and my_data[j] == '__Dosage_Reason__') or entered_reason:
                         if my_data[j] == '__Dosage_Reason__':
-                            start_ind_reason = j
+                            start_ind_reason = j + 1
+                            print('Dosing-Reason Boundary moved!')
                         entered_reason = True
-                        row = row + ['Missing']
-                        problem_row = True
+                        if j in range(start_ind, start_ind + (start_date_count * 3), start_date_count):
+                            row = row + ['Missing']
+                            problem_row = True
                     else:
-                        row = row + [my_data[j]]
-                assert(len(range(start_ind_reason + i, (start_ind_reason + i) + (start_date_count * 2), start_date_count)) == 2)
-                for j in range(start_ind_reason + i, (start_ind_reason + 1) + (start_date_count * 2), start_date_count):
-                    if j == start_ind_reason:
+                        if j in range(start_ind, start_ind + (start_date_count * 3), start_date_count):
+                            row = row + [my_data[j]]
+                assert(len(range(start_ind_reason + 1, (start_ind_reason + 1) + (start_date_count * 2), start_date_count)) == 2)
+                print(range(start_ind_reason + 1, (start_ind_reason + 1) + (start_date_count * 2), start_date_count))
+                for j in range(start_ind_reason + 1, (start_ind_reason + 1) + (start_date_count * 2), start_date_count):
+                    if j == start_ind_reason + 1 and i == 1:
                         assert(my_data[j - 1] == '__Dosage_Reason__')
+                        started_at_boundary = True
                     row = row + [my_data[j]]
                 assert(len([pt_number_center, drug, end_date] + row) == len(col_names))
                 rows = rows + [[pt_number_center, drug, end_date] + row]
                 if problem_row:
                     problem_rows = problem_rows + [[(len(rows)-1)]]
                     problem_row = False
-
+            assert(started_at_boundary)
 
         # Split the end_dates and add e
         for ind in range(len(rows)):
