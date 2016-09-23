@@ -175,6 +175,7 @@ class MainWindow(QtGui.QMainWindow):
                 if elem not in date_replacements:
                     end_date_found = False
                     if start_dates_count > 0:
+                        # Problem here when looking at index 1527. start_dates_count is wrong
                         start_dates_counts = start_dates_counts + [start_dates_count - 1]
                         end_of_dates_inds = end_of_dates_inds + [ind]
                         assert (len(start_dates_counts) == len(end_date_inds) == len(end_of_dates_inds))
@@ -225,25 +226,34 @@ class MainWindow(QtGui.QMainWindow):
                     print('breakpoint ')
                 start_ind = end_date_ind + i
                 row = []
-                entered_reason = False
-                #todo: start_ind_reason defined here does very sadly not take into account that dates may be empty
+                #entered_reason = False  or entered_reason
+                # todo: start_ind_reason defined here does very sadly not take into account that dates may be empty
                 start_ind_reason = start_ind + (start_date_count * 3)
                 assert(len(range(start_ind, start_ind + (start_date_count * 3), start_date_count)) == 3)
                 for j in range(start_ind, start_ind + (start_date_count * 3), start_date_count):
-                    if my_data[j] == '__Dosage_Reason__' or entered_reason:
+                    if my_data[j] == '__Dosage_Reason__' or '__Dosage_Reason__' in my_data[j-start_date_count:j]:
                         if my_data[j] == '__Dosage_Reason__':
                             start_ind_reason = j
-                        entered_reason = True
+                        else:
+                            itemindex = my_data[j-start_date_count:j].index('__Dosage_Reason__')
+                            start_ind_reason = j-start_date_count+itemindex
+                        #entered_reason = True
                         row = row + ['Missing']
                         problem_row = True
                     else:
                         row = row + [my_data[j]]
+                if my_data[start_ind_reason + i - 1] != '__Dosage_Reason__':
+                    # the boundary has to be behind us in this case
+                    if '__Dosage_Reason__' not in my_data[start_ind_reason + i - (start_date_count * 3):start_ind_reason + i]:
+                        print(my_data[j])
+                    assert('__Dosage_Reason__' in my_data[start_ind_reason + i - (start_date_count*3):start_ind_reason + i])
+                    itemindex = my_data[start_ind_reason + i - (start_date_count*3):start_ind_reason + i].index('__Dosage_Reason__')
+                    start_ind_reason = start_ind_reason + i - (start_date_count*3) + itemindex
                 assert(len(range(start_ind_reason + i, (start_ind_reason + i) + (start_date_count * 2), start_date_count)) == 2)
-                for j in range(start_ind_reason + i, (start_ind_reason + 1) + (start_date_count * 2), start_date_count):
-                    if j == start_ind_reason:
+                for j in range(start_ind_reason + i, (start_ind_reason + i) + (start_date_count * 2), start_date_count):
+                    if j == start_ind_reason + 1:
                         assert(my_data[j - 1] == '__Dosage_Reason__')
                     row = row + [my_data[j]]
-                    print(my_data[j])
                 assert(len([pt_number_center, drug, end_date] + row) == len(col_names))
                 rows = rows + [[pt_number_center, drug, end_date] + row]
                 if problem_row:
