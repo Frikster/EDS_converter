@@ -71,32 +71,40 @@ class MainWindow(QtGui.QMainWindow):
         for ind in range(len(my_data)):
             my_data[ind] = my_data[ind].strip()
 
-        # Remove all non-date numbers
-        for ind in range(len(my_data)):
-            n_spaces = my_data[ind].count(' ')
-            if (len(my_data[ind]) < 6) or n_spaces > 2:
-                try:
-                    int(my_data[ind].replace(' ', ''))
-                    print(
-                    "Deleting " + str(my_data[ind]) + " at index " + str(ind) + " with len " + str(len(my_data[ind])))
-                    # Create a boundary between Dosage and Reason
-                    my_data[ind] = '__Dosage_Reason__'
-                except:
-                    continue
-
         # Delete all empty elements
         my_data = [val for val in my_data if val != '']
+
+        # Remove all non-date numbers
+        # And get a count of how many dates there should be. The dict can be used if other methods fail to find # dates
+        # Carefully decide on criteria for detecting the boundary below
+        dates_counts_boundary = []
+        for ind in range(len(my_data)):
+            n_spaces = my_data[ind].count(' ')
+            boundary_list = [i for i in my_data[ind].split()]
+            comparrison_list = [s for s in boundary_list if s.isdigit()]
+            remove_spaces = my_data[ind].replace(' ', '')
+            if (len(boundary_list) - len(comparrison_list) < 2 and\
+                    all(i == 1 for i in map(len, comparrison_list)) and\
+                            comparrison_list != [] and \
+                            n_spaces > 1) or (len(remove_spaces) < 6 and
+                                                                 remove_spaces.isdigit()):
+                print(
+                    "Deleting " + str(my_data[ind]) + " at index " + str(ind) + " with len " + str(
+                        len(my_data[ind])))
+                dates_counts_boundary = dates_counts_boundary + [my_data[ind]]
+                # Create a boundary between Dosage and Reason
+                my_data[ind] = '__Dosage_Reason__'
 
         # Split all the end_dates correctly
         # dates are often replaced with 'U' or 'CON'
         # CON = continuous as in ongoing
-        date_replacements = ['CON', 'U']
+        date_replacements = ['CON', 'U', 'CONT']
         ind = 0
         dates_counts = []
         end_date_inds = []
         end_date_found = False
         dates_count = 0
-
+        # dates_counts counts up the numer of dates (end and start dates together) and starting at each end_date_ind
         for ind in range(len(my_data)):
             elem = my_data[ind]
             elem = elem.replace(' ', '')
@@ -113,6 +121,10 @@ class MainWindow(QtGui.QMainWindow):
             # Logically if you are here elem is an integer or in date_replacements
             if not end_date_found and len(elem) >= 6:
                 end_date_inds = end_date_inds + [ind]
+                try:
+                    int(elem)
+                except:
+                    assert(False)
                 end_date_found = True
                 dates_count = 1
             else:
@@ -178,7 +190,7 @@ class MainWindow(QtGui.QMainWindow):
                         # Problem here when looking at index 1527. start_dates_count is wrong
                         start_dates_counts = start_dates_counts + [start_dates_count - 1]
                         end_of_dates_inds = end_of_dates_inds + [ind]
-                        assert (len(start_dates_counts) == len(end_date_inds) == len(end_of_dates_inds))
+                        assert(len(start_dates_counts) == len(end_date_inds) == len(end_of_dates_inds))
                         start_dates_count = 0
                     continue
             # Logically if you are here elem is an integer or in date_replacements
@@ -189,6 +201,15 @@ class MainWindow(QtGui.QMainWindow):
             else:
                 if end_date_found and (len(elem) >= 6 or elem in date_replacements):
                     start_dates_count = start_dates_count + 1
+
+        # Check to make sure that your start_date_count accounts for missing dates
+        # 1. times where end_date ends up with more dates than available start_dates
+        # 2. times where both start and end dates are just flat missing - check in the boundary dict #todo: still need to implement
+        start_dates_counts_actual = start_dates_counts[:]
+        for ind in range(len(end_date_inds)):
+            if (len(my_data[end_date_inds[ind]]) / 6) > start_dates_counts[ind]:
+                start_dates_counts_actual[ind] = len(my_data[end_date_inds[ind]])
+            assert ((len(my_data[end_date_inds[ind]]) / 6) <= start_dates_counts_actual[ind])
 
         col_names = ['pt_number_center', 'drug', 'start_date', 'end_date', 'dose', 'dosing', 'reason', 'conclusion']
         rows = [col_names]
@@ -213,7 +234,9 @@ class MainWindow(QtGui.QMainWindow):
                         assert (pt_number_center_inds_ind == len(pt_number_center_inds) - 1)
             else:
                 assert(pt_number_center_inds_ind == len(pt_number_center_inds)-1)
-            start_date_count = start_dates_counts[ind]
+
+            # Note we count missing start_dates as well
+            start_date_count = start_dates_counts_actual[ind]
             # Find the first drug for this set
             end_date = my_data[start_ind]
             if start_ind in problem_inds:
@@ -222,30 +245,57 @@ class MainWindow(QtGui.QMainWindow):
                 drug_ref_inds = list(reversed(range(1, start_date_count + 1)))
                 drug_ref_ind = drug_ref_inds[i-1]
                 drug = my_data[end_date_ind - drug_ref_ind]
-                if drug == 'HUMULIN':
-                    print('breakpoint ')
+                # start_ind is where the end_date for this row is
                 start_ind = end_date_ind + i
                 row = []
                 #entered_reason = False  or entered_reason
-                # todo: start_ind_reason defined here does very sadly not take into account that dates may be empty
+                # start_ind_reason gives us the ind just before where we start after the boundary for this row,
+                # NOT the actual boundary though it of course will be the boundary in the first row for this set
+
+                # 2. times where both start and end dates are just flat missing
+                # - more elements than needed to get to boundary #todo: still need to implement
                 start_ind_reason = start_ind + (start_date_count * 3)
+                missing_end_and_start_date = False
+                if i == 1 and my_data[start_ind_reason] != '__Dosage_Reason__' and \
+                                '__Dosage_Reason__' not in my_data[start_ind:start_ind_reason]:
+                    missing_end_and_start_date = True
+                    inds_to_boundary = 0
+                    flag = start_ind_reason + 1
+                    boundary_search = True
+                    while boundary_search:
+                        if my_data[flag] == '__Dosage_Reason__':
+                            inds_to_boundary = flag - start_ind_reason
+                            boundary_search = False
+                        else:
+                            flag = flag + 1
+
                 assert(len(range(start_ind, start_ind + (start_date_count * 3), start_date_count)) == 3)
                 for j in range(start_ind, start_ind + (start_date_count * 3), start_date_count):
                     if my_data[j] == '__Dosage_Reason__' or '__Dosage_Reason__' in my_data[j-start_date_count:j]:
                         if my_data[j] == '__Dosage_Reason__':
                             start_ind_reason = j
                         else:
+                            # Find out if you passed the boundary
                             itemindex = my_data[j-start_date_count:j].index('__Dosage_Reason__')
                             start_ind_reason = j-start_date_count+itemindex
+                            assert(my_data[start_ind_reason] == '__Dosage_Reason__')
                         #entered_reason = True
                         row = row + ['Missing']
                         problem_row = True
                     else:
                         row = row + [my_data[j]]
-                if my_data[start_ind_reason + i - 1] != '__Dosage_Reason__':
+
+                if missing_end_and_start_date:
+                    start_ind_reason = start_ind_reason + inds_to_boundary
+                # i ranges from 0 to the number of start_dates (incl. missing)
+                # todo: fgure out if start_ind_reason - i + 1 or start_ind_reason + i - 1 makes more sense
+                if my_data[start_ind_reason - i + 1] != '__Dosage_Reason__':
                     # the boundary has to be behind us in this case
                     if '__Dosage_Reason__' not in my_data[start_ind_reason + i - (start_date_count * 3):start_ind_reason + i]:
-                        print(my_data[j])
+                        problem_rows = problem_rows + [[(len(rows) - 1)]]
+                        problem_row = False
+                        row = row + ['Too difficult to parse', 'Too difficult to parse']
+                        continue
                     assert('__Dosage_Reason__' in my_data[start_ind_reason + i - (start_date_count*3):start_ind_reason + i])
                     itemindex = my_data[start_ind_reason + i - (start_date_count*3):start_ind_reason + i].index('__Dosage_Reason__')
                     start_ind_reason = start_ind_reason + i - (start_date_count*3) + itemindex
