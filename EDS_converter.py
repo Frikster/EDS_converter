@@ -57,6 +57,72 @@ class MainWindow(QtGui.QMainWindow):
                     return True
         return False
 
+    def find_boundaries(self, my_data):
+        #assume my_data has been stripped
+        dosage_reason_boundaries = [] # all boundaries in the form [(index, boundary),()...]
+        end_dates = [] #all end_dates in the form [(index,end_date),()...]
+        candidate_end_date_for_set = ''
+        ind_plusone_flag = False
+        for ind in range(len(my_data)):
+            if ind_plusone_flag:
+                ind_plusone_flag = False
+                continue
+            # First find a candidate end_date since you'll hit it first
+            elem = my_data[ind]
+            elem_6_split = [elem[i:i + 6] for i in range(0, len(elem), 6)]
+            elem_6_split_isdigit = [i.isdigit() for i in elem_6_split] #True False for each one
+            elem_6_split_digits = [i for i in elem_6_split if i.isdigit()]
+            n_spaces = elem.count(' ')
+            boundary_list = [i for i in elem.split()]
+            boundary_digits_list = [s for s in boundary_list if s.isdigit()]
+            remove_spaces_elem = elem.replace(' ', '')
+
+            # Weak case, if the following is minimally true we have an end_date
+            if True in elem_6_split_isdigit and candidate_end_date_for_set == '':
+                # The obvious hard-ass case:
+                if elem.isdigit() and all(i == 6 for i in map(len, elem_6_split)):
+                    candidate_end_date_for_set = elem
+                else:
+                    # Splitting of end_date needed
+                    # when here we know one of elem_6_split is not a digit
+                    candidate = ''
+                    if elem_6_split_isdigit[0]:
+                        for i in range(len(elem_6_split)):
+                            if elem_6_split[i].isdigit():
+                                candidate = candidate + elem_6_split[i]
+                            else:
+                                # correct my_data's end_date
+                                the_rest = elem_6_split[i:]
+                                my_data = my_data[:ind-1] + [candidate,the_rest] + my_data[ind:]
+                                break
+                                # note candidate is still at ind, so okay to split in a loop
+                        candidate_end_date_for_set = candidate
+                    else:
+                        # reverse case
+                        if elem_6_split_isdigit[-1]:
+                            the_wrong_start = ''
+                            for i in range(len(elem_6_split)):
+                                if elem_6_split[i].isdigit():
+                                    candidate = candidate + elem_6_split[i]
+                                else:
+                                    the_wrong_start = the_wrong_start + elem_6_split[i]
+                            # correct my_data's end_date
+                            my_data = my_data[:ind - 1] + [the_wrong_start, candidate] + my_data[ind:]
+                            # note candidate is **NOT** still at ind: WILL NEED TO SKIP NEXT LOOP ITERATION
+                            candidate_end_date_for_set = candidate
+                            ind_plusone_flag = True
+                        else:
+                            # This would mean this element has both values tacked on the front and back
+                            # and should be looked into seperately...
+                            assert(False)
+                if ind_plusone_flag:
+                    end_dates = end_dates + [(ind+1, candidate_end_date_for_set)]
+                else:
+                    end_dates = end_dates + [(ind,candidate_end_date_for_set)]
+
+        print('You made it!')
+
+
     def eds_conversion(self):
         fname = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
                                                   '/home')
@@ -73,6 +139,15 @@ class MainWindow(QtGui.QMainWindow):
 
         # Delete all empty elements
         my_data = [val for val in my_data if val != '']
+
+        self.find_boundaries(my_data)
+
+        # Find locations and values for all dosage_reason boundaries
+        # Find locations and values for all
+        dosage_reason_boundaries = []
+
+
+
 
         # Remove all non-date numbers
         # And get a count of how many dates there should be. The dict can be used if other methods fail to find # dates
@@ -341,29 +416,6 @@ class MainWindow(QtGui.QMainWindow):
                     rows[row_ind + end_date_no][2] = rows[row_ind + end_date_no][2][0]
                     problem_rows = problem_rows + [[row_ind + end_date_no]]
             row_ind = row_ind + end_date_total
-
-        # new_end_date_rows = []
-        # last_end_date = ''
-        # end_date = rows[ind][2]
-        # if (last_end_date != end_date and len(end_date) >= 6) or last_end_date == end_date:
-        #     end_date_ind = ind
-        #     last_end_date = end_date
-        #     new_end_date_rows = new_end_date_rows + [ind]
-        #
-        # # flatten each row
-        # for outer_ind in range(len(new_end_date_rows)):
-        #     row_ind = new_end_date_rows[outer_ind]
-        #     for end_date_no in range(len(rows[row_ind][2])):
-        #         # This if statement checks if you're at the end of the list
-        #         if row_ind+end_date_no < range(len(rows[row_ind][2]))[-1]:
-        #             if row_ind+end_date_no >= new_end_date_rows[outer_ind+1]:
-        #                 continue
-        #         if not isinstance(rows[row_ind+end_date_no][2], str):
-        #             rows[row_ind+end_date_no][2] = rows[row_ind+end_date_no][2][end_date_no]
-        #             if row_ind+end_date_no > 1:
-        #                 assert(len(rows[row_ind+end_date_no-1][2]) == 6)
-        #         else:
-        #             problem_rows = problem_rows + [[row_ind+end_date_no]]
 
         output_file_name = fname[:-4]
         output_file_name = output_file_name + '_csv.csv'
