@@ -237,7 +237,9 @@ class MainWindow(QtGui.QMainWindow):
                 assert(pt_number_center_inds_ind == len(pt_number_center_inds)-1)
 
             # Note we count missing start_dates as well
-            start_date_count = start_dates_counts_actual[ind]
+            # todo: which one
+            start_date_count = start_dates_counts[ind]
+            #start_date_count = start_dates_counts_actual[ind]
             # Find the first drug for this set
             end_date = my_data[start_ind]
             if start_ind in problem_inds:
@@ -262,11 +264,10 @@ class MainWindow(QtGui.QMainWindow):
                     missing_end_and_start_date = True
                     inds_to_boundary = 0
                     flag = start_ind_reason + 1
-                    boundary_search = True
-                    while boundary_search:
+                    while flag < len(my_data):
                         if my_data[flag] == '__Dosage_Reason__':
                             inds_to_boundary = flag - start_ind_reason
-                            boundary_search = False
+                            break
                         else:
                             flag = flag + 1
 
@@ -308,7 +309,7 @@ class MainWindow(QtGui.QMainWindow):
                 assert(len([pt_number_center, drug, end_date] + row) == len(col_names))
                 if '__Dosage_Reason__' in row:
                     print('')
-                assert('__Dosage_Reason__' not in row)
+                #assert('__Dosage_Reason__' not in row)
                 rows = rows + [[pt_number_center, drug, end_date] + row]
                 if problem_row:
                     problem_rows = problem_rows + [[(len(rows)-1)]]
