@@ -79,7 +79,7 @@ class MainWindow(QtGui.QMainWindow):
         # Carefully decide on criteria for detecting the boundary below
         dates_counts_boundary = []
         for ind in range(len(my_data)):
-            n_spaces = my_data[ind].count(' ')
+            n_spaces = my_data[ind].strip().count(' ')
             boundary_list = [i for i in my_data[ind].split()]
             comparrison_list = [s for s in boundary_list if s.isdigit()]
             remove_spaces = my_data[ind].replace(' ', '')
@@ -87,7 +87,8 @@ class MainWindow(QtGui.QMainWindow):
                     all(i == 1 for i in map(len, comparrison_list)) and\
                             comparrison_list != [] and \
                             n_spaces > 1) or (len(remove_spaces) < 6 and
-                                                                 remove_spaces.isdigit()):
+                                                                 remove_spaces.isdigit() and
+                                                                     n_spaces > 1):
                 print(
                     "Deleting " + str(my_data[ind]) + " at index " + str(ind) + " with len " + str(
                         len(my_data[ind])))
@@ -208,7 +209,7 @@ class MainWindow(QtGui.QMainWindow):
         start_dates_counts_actual = start_dates_counts[:]
         for ind in range(len(end_date_inds)):
             if (len(my_data[end_date_inds[ind]]) / 6) > start_dates_counts[ind]:
-                start_dates_counts_actual[ind] = len(my_data[end_date_inds[ind]])
+                start_dates_counts_actual[ind] = (len(my_data[end_date_inds[ind]]) / 6)
             assert ((len(my_data[end_date_inds[ind]]) / 6) <= start_dates_counts_actual[ind])
 
         col_names = ['pt_number_center', 'drug', 'start_date', 'end_date', 'dose', 'dosing', 'reason', 'conclusion']
@@ -305,6 +306,9 @@ class MainWindow(QtGui.QMainWindow):
                         assert(my_data[j - 1] == '__Dosage_Reason__')
                     row = row + [my_data[j]]
                 assert(len([pt_number_center, drug, end_date] + row) == len(col_names))
+                if '__Dosage_Reason__' in row:
+                    print('')
+                assert('__Dosage_Reason__' not in row)
                 rows = rows + [[pt_number_center, drug, end_date] + row]
                 if problem_row:
                     problem_rows = problem_rows + [[(len(rows)-1)]]
