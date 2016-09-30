@@ -582,6 +582,6 @@ if __name__ == '__main__':
     window = MainWindow()
     window.show()
     app.exec_()
-    sys.exit(app.exec_())
     closeInput = raw_input("Press ENTER to exit")
-    print "Closing..."
+    print( "Closing...")
+    sys.exit(app.exec_())
