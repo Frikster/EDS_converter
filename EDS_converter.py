@@ -17,6 +17,12 @@ import textwrap
 
 absDirPath = os.path.dirname(__file__)
 
+def hasNumbers(inputString):
+    if inputString == []:
+        return True
+    else:
+        return any(char.isdigit() for char in inputString)
+
 class MainWindow(QtGui.QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -59,9 +65,10 @@ class MainWindow(QtGui.QMainWindow):
 
     def find_boundaries(self, my_data):
         #assume my_data has been stripped
-        date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.', 'CONTINUE' , 'CONTINUED', 'CONTINUES']
-        not_boundary_identifiers = ['GM', 'MG']
-        not_date_identification = ['ABCDE']
+        date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.', 'CONTINUE' , 'CONTINUED', 'CONTINUES',
+                             'N/A']
+        not_boundary_identifiers = ['GM', 'MG', 'X 1', 'HRS']
+        not_date_identification = ['ABCDE', 'ABCD', 'BCDE']
 
         date_counts = []
         dosage_reason_boundaries = [] # all boundaries in the form [(index, boundary),()...]
@@ -89,7 +96,7 @@ class MainWindow(QtGui.QMainWindow):
                 '-' not in elem and \
                 candidate_end_date_for_set == '' and \
                 n_spaces  < 2 and \
-                all([set(i).isdisjoint(elem) for i in not_date_identification]):
+                all([i not in elem for i in not_date_identification]):
                 # The obvious hard-ass case:
                 if elem.isdigit() and all(i == 6 for i in map(len, elem_6_split)):
                     candidate_end_date_for_set = elem
@@ -129,7 +136,7 @@ class MainWindow(QtGui.QMainWindow):
                             if not unsolvable_problem:
                                 candidate_end_date_for_set = candidate
                             else:
-                                candidate_end_date_for_set = ''
+                                candidate_end_date_for_set = "UNSOLVABLE PROBLEM IDENTIFYING DATES FOR THIS SECTION"
                         else:
                             # This would mean this element has both values tacked on the front and back
                             # and should be looked into seperately...
@@ -163,16 +170,24 @@ class MainWindow(QtGui.QMainWindow):
             ##############################
             ### Check for the boundary ###
             if candidate_end_date_for_set != '':
+                if '3 3 3' in elem:
+                    print('')
+
                 n_spaces = elem.count(' ')
                 boundary_list = [i for i in elem.split()]
                 boundary_digits_list = [s for s in boundary_list if s.isdigit()]
+                boundary_strings_list = [s for s in boundary_list if not s.isdigit()]
+
                 remove_spaces_elem = elem.replace(' ', '')
                 # CRITERIA are DEBATEABLE!!!
-                if (all(i == 1 for i in map(len, boundary_digits_list)) and
+                if  all(i > 1 for i in map(len, boundary_strings_list)) and\
+                    (any(hasNumbers(i) for i in boundary_strings_list) or  boundary_strings_list == []) and\
+                    (ind - date_count_ind) >= ((date_count * 2)-1) and\
+                    ((all(i == 1 for i in map(len, boundary_digits_list)) and
                     boundary_digits_list != [] and
                     n_spaces >= 1) or (len(remove_spaces_elem) < 6 and
-                    remove_spaces_elem.isdigit()) and \
-                    set(boundary_list).isdisjoint(not_boundary_identifiers):
+                    remove_spaces_elem.isdigit())) and\
+                    all([i not in elem for i in not_boundary_identifiers]):
                     #(ind - date_count_ind) >= ((date_count * 2)-1) and \
                     #  There are cases where you might have 3 dates and only 1 dose and 0 dosage...
                     #(len(boundary_list) - len(boundary_digits_list) < 2 and
@@ -189,19 +204,22 @@ class MainWindow(QtGui.QMainWindow):
                         # Patterns identified:
                         # 1. Right after end_date often the next date only has 5 characters
                         # 2. Sometimes UNK is a date... other times not...?
-                        # 3. Sometimes - '3 2 3 7 2 7 1 2 1 1ANTIBIOTIC PROPHYLAXIS' -
+                        # 3. Sometimes - '3 7 4 3 3 3 7 7 3 3INCREASED H + H' -
                         # boundary has more than one solid attatched. Not accounted for.
+                        # 4. cant discersn whether UNK is for missing date or missing dose
+                        #
                         print(date_counts[-1])
                         print(my_data[date_counts[-1][0]:ind+1])
                         candidate_end_date_for_set = ''
                     else:
                         dosage_reason_boundaries = dosage_reason_boundaries + [(ind, my_data[ind])]
+                        assert (len(end_dates) == len(dosage_reason_boundaries))
                         candidate_end_date_for_set = ''
 
-        print(len(end_dates))
+        print(len(date_counts))
         print(len(dosage_reason_boundaries))
-        assert(len(end_dates) == len(dosage_reason_boundaries))
-        return [end_dates, dosage_reason_boundaries, my_data]
+        assert(len(date_counts) == len(dosage_reason_boundaries))
+        return [date_counts, dosage_reason_boundaries, my_data]
 
 
 
@@ -222,28 +240,26 @@ class MainWindow(QtGui.QMainWindow):
         # Delete all empty elements
         my_data = [val for val in my_data if val != '']
 
-        [end_dates, dosage_reason_boundaries, my_data] = self.find_boundaries(my_data)
+        [end_date_counts, dosage_reason_boundaries, my_data] = self.find_boundaries(my_data)
 
         header = ['end_date indices in EDS',
-                  'End_dates',
-                  'dosage_reason_boundaries in EDS',
+                  'end_date counts',
+                  'dates identified for this section',
+                  'dosage_reason_boundary indices in EDS',
                   'dosage_reason_boundaries']
 
-        [end_date_indices, end_dates] = [list(t) for t in zip(*end_dates)]
+        [end_date_indices, end_date_count, dates_section] = [list(t) for t in zip(*end_date_counts)]
         [dosage_reason_boundaries_indices, dosage_reason_boundaries] = [list(t) for t in zip(*dosage_reason_boundaries)]
-        rows = [header] + zip(end_date_indices, end_dates, dosage_reason_boundaries_indices, dosage_reason_boundaries)
-
-        zip(*[(1, 1), (2, 2), (3, 3)])
-
+        rows = [header] + zip(end_date_indices, end_date_count, dates_section, dosage_reason_boundaries_indices, dosage_reason_boundaries)
         output_file_name = fname[:-4]
         output_file_name = output_file_name + '_foundations.csv'
         with open(output_file_name, "wb") as f:
             writer = csv.writer(f)
             writer.writerows(rows)
 
-        output_file_name = fname[:-4]
-        output_file_name = output_file_name + '_modified.csv'
-        with open(output_file_name, "wb") as f:
+        eds_mod_file_name = fname[:-4]
+        eds_mod_file_name = eds_mod_file_name + '_modified.csv'
+        with open(eds_mod_file_name, "wb") as f:
             writer = csv.writer(f)
             writer.writerows(my_data)
 
@@ -257,7 +273,11 @@ class MainWindow(QtGui.QMainWindow):
                                 "please check foundations are correct before continuing. csv saved to "
                                 + output_file_name)
         w = QWidget()
-        QMessageBox.information(w, "Sorry", "The Rest of this EDS_converter 2.0 still under construction")
+        QMessageBox.information(w, "EDS converted to preliminary csv",
+                                "Cross-reference foundations against the EDS csv saved to "
+                                + eds_mod_file_name)
+        w = QWidget()
+        QMessageBox.information(w, "Sorry", "The Rest of EDS_converter 2.0 is still under construction")
 
 
         # Find locations and values for all dosage_reason boundaries
@@ -563,3 +583,5 @@ if __name__ == '__main__':
     window.show()
     app.exec_()
     sys.exit(app.exec_())
+    closeInput = raw_input("Press ENTER to exit")
+    print "Closing..."
