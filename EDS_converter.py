@@ -59,6 +59,11 @@ class MainWindow(QtGui.QMainWindow):
 
     def find_boundaries(self, my_data):
         #assume my_data has been stripped
+        date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.', 'CONTINUE' , 'CONTINUED', 'CONTINUES']
+        not_boundary_identifiers = ['GM', 'MG']
+        not_date_identification = ['ABCDE']
+
+        date_counts = []
         dosage_reason_boundaries = [] # all boundaries in the form [(index, boundary),()...]
         end_dates = [] #all end_dates in the form [(index,end_date),()...]
         candidate_end_date_for_set = ''
@@ -68,20 +73,23 @@ class MainWindow(QtGui.QMainWindow):
                 ind_plusone_flag = False
                 continue
 
-            if ind == 264699:
-                print('')
-
             # First find a candidate end_date since you'll hit it first
             elem = my_data[ind]
             elem_6_split = [elem[i:i + 6] for i in range(0, len(elem), 6)]
             elem_6_split_isdigit = [i.isdigit() for i in elem_6_split] # True False for each one
+            elem_6_split_digits = [i for i in elem_6_split if i.isdigit()]
+            n_spaces = elem.count(' ')
 
             ##########################################################################
             #### Weak case, if the following is minimally true we have an end_date ###
             if len(elem) >= 6 and\
-                            True in elem_6_split_isdigit and\
-                    not self.is_center_pt_number(elem) and\
-                            candidate_end_date_for_set == '':
+                True in elem_6_split_isdigit and\
+                max(map(len, elem_6_split_digits)) >= 6 and\
+                not self.is_center_pt_number(elem) and\
+                '-' not in elem and \
+                candidate_end_date_for_set == '' and \
+                n_spaces  < 2 and \
+                all([set(i).isdisjoint(elem) for i in not_date_identification]):
                 # The obvious hard-ass case:
                 if elem.isdigit() and all(i == 6 for i in map(len, elem_6_split)):
                     candidate_end_date_for_set = elem
@@ -89,34 +97,43 @@ class MainWindow(QtGui.QMainWindow):
                     # Splitting of end_date needed
                     # when here we know one of elem_6_split is not a digit
                     candidate = ''
-                    if elem_6_split_isdigit[0]:
+                    if elem_6_split_isdigit[-1]:
+                        the_wrong_start = ''
                         for i in range(len(elem_6_split)):
                             if elem_6_split[i].isdigit():
                                 candidate = candidate + elem_6_split[i]
                             else:
-                                # correct my_data's end_date
-                                the_rest = elem_6_split[i:]
-                                my_data = my_data[:ind-1] + [candidate,the_rest] + my_data[ind:]
-                                break
-                                # note candidate is still at ind, so okay to split in a loop
+                                the_wrong_start = the_wrong_start + elem_6_split[i]
+                        # correct my_data's end_date
+                        my_data = my_data[:ind - 1] + [the_wrong_start, candidate] + my_data[ind:]
+                        # note candidate is **NOT** still at ind: WILL NEED TO SKIP NEXT LOOP ITERATION
                         candidate_end_date_for_set = candidate
+                        ind_plusone_flag = True
                     else:
-                        # reverse case
-                        if elem_6_split_isdigit[-1]:
-                            the_wrong_start = ''
+                        unsolvable_problem = False
+                        if elem_6_split_isdigit[0]:
+                            #Could have adate_replacement attatched to it... sighs
                             for i in range(len(elem_6_split)):
                                 if elem_6_split[i].isdigit():
                                     candidate = candidate + elem_6_split[i]
                                 else:
-                                    the_wrong_start = the_wrong_start + elem_6_split[i]
-                            # correct my_data's end_date
-                            my_data = my_data[:ind - 1] + [the_wrong_start, candidate] + my_data[ind:]
-                            # note candidate is **NOT** still at ind: WILL NEED TO SKIP NEXT LOOP ITERATION
-                            candidate_end_date_for_set = candidate
-                            ind_plusone_flag = True
+                                    # correct my_data's end_date
+                                    the_rest = elem_6_split[i:][0]
+                                    if the_rest in date_replacements:
+                                        my_data = my_data[:ind-1] + [candidate, the_rest] + my_data[ind:]
+                                    else:
+                                        print(my_data[ind - 5:ind + 5])
+                                        unsolvable_problem =  True
+                                    break
+                                    # note candidate is still at ind, so okay to split in a loop
+                            if not unsolvable_problem:
+                                candidate_end_date_for_set = candidate
+                            else:
+                                candidate_end_date_for_set = ''
                         else:
                             # This would mean this element has both values tacked on the front and back
                             # and should be looked into seperately...
+                            print(my_data[ind - 5:ind + 5])
                             assert(False)
                 if ind_plusone_flag:
                     end_dates = end_dates + [(ind+1, candidate_end_date_for_set)]
@@ -125,6 +142,24 @@ class MainWindow(QtGui.QMainWindow):
                     end_dates = end_dates + [(ind, candidate_end_date_for_set)]
                     print(str(ind) + '/' + str(len(my_data)))
 
+                ##########################################
+                ### Count number of dates for this set ###
+                if ind_plusone_flag:
+                    date_count_ind = ind + 1
+                else:
+                    date_count_ind = ind
+                count = 0
+                while True:
+                    elem_6_split = [my_data[date_count_ind][i:i + 6] for i in range(0, len(my_data[date_count_ind]), 6)]
+                    elem_6_split_dates = [i for i in elem_6_split if i.isdigit() and len(i) >= 6]
+                    if (len(elem_6_split_dates) > 0 and len(my_data[date_count_ind]) >= 6) or\
+                                    my_data[date_count_ind] in date_replacements:
+                        count = count + 1
+                        date_count_ind = date_count_ind + 1
+                    else:
+                        break
+                date_counts = date_counts + [(ind, count, my_data[date_count_ind-count:date_count_ind])]
+                date_count_ind, date_count = date_counts[-1][0], date_counts[-1][1]
             ##############################
             ### Check for the boundary ###
             if candidate_end_date_for_set != '':
@@ -132,20 +167,41 @@ class MainWindow(QtGui.QMainWindow):
                 boundary_list = [i for i in elem.split()]
                 boundary_digits_list = [s for s in boundary_list if s.isdigit()]
                 remove_spaces_elem = elem.replace(' ', '')
-                # THIS FIRST CRITERIA IS DEBATEABLE!!!
-                if (len(boundary_list) - len(boundary_digits_list) < 2 and
-                        all(i == 1 for i in map(len, boundary_digits_list)) and
-                                boundary_digits_list != [] and
-                                n_spaces > 1) or (len(remove_spaces_elem) < 6 and
-                                                                     remove_spaces_elem.isdigit() and
-                                                                         n_spaces > 1):
-                    dosage_reason_boundaries = dosage_reason_boundaries + [(ind, my_data[ind])]
-                    candidate_end_date_for_set = ''
+                # CRITERIA are DEBATEABLE!!!
+                if (all(i == 1 for i in map(len, boundary_digits_list)) and
+                    boundary_digits_list != [] and
+                    n_spaces >= 1) or (len(remove_spaces_elem) < 6 and
+                    remove_spaces_elem.isdigit()) and \
+                    set(boundary_list).isdisjoint(not_boundary_identifiers):
+                    #(ind - date_count_ind) >= ((date_count * 2)-1) and \
+                    #  There are cases where you might have 3 dates and only 1 dose and 0 dosage...
+                    #(len(boundary_list) - len(boundary_digits_list) < 2 and
+                    # There are numerous cases like '3 2 3 7 2 7 1 2 1 1ANTIBIOTIC PROPHYLAXIS' or even more words stuck
+                    # on
+
+                    # Check if boundary is a reasonable distance away from associated end_date
+                    # CRITERIA DEBATEABLE: MADE IT DOUBLE (3 items to boundary * 2) WHAT IT SHOULD BE
+                    # (don't forget dates aren't properly split yet)
+                    if ind - date_count_ind > date_count * 6:
+                        dosage_reason_boundaries = dosage_reason_boundaries + [(ind, my_data[ind]
+                        +" BOUNDARY TOO FAR FROM DATES OR OTHER PROBLEM - SKIPPING WHOLE SECTION")]
+
+                        # Patterns identified:
+                        # 1. Right after end_date often the next date only has 5 characters
+                        # 2. Sometimes UNK is a date... other times not...?
+                        # 3. Sometimes - '3 2 3 7 2 7 1 2 1 1ANTIBIOTIC PROPHYLAXIS' -
+                        # boundary has more than one solid attatched. Not accounted for.
+                        print(date_counts[-1])
+                        print(my_data[date_counts[-1][0]:ind+1])
+                        candidate_end_date_for_set = ''
+                    else:
+                        dosage_reason_boundaries = dosage_reason_boundaries + [(ind, my_data[ind])]
+                        candidate_end_date_for_set = ''
 
         print(len(end_dates))
         print(len(dosage_reason_boundaries))
         assert(len(end_dates) == len(dosage_reason_boundaries))
-        return [end_dates, dosage_reason_boundaries]
+        return [end_dates, dosage_reason_boundaries, my_data]
 
 
 
@@ -166,14 +222,14 @@ class MainWindow(QtGui.QMainWindow):
         # Delete all empty elements
         my_data = [val for val in my_data if val != '']
 
-        [end_dates, dosage_reason_boundaries] = self.find_boundaries(my_data)
+        [end_dates, dosage_reason_boundaries, my_data] = self.find_boundaries(my_data)
 
         header = ['end_date indices in EDS',
                   'End_dates',
                   'dosage_reason_boundaries in EDS',
                   'dosage_reason_boundaries']
 
-        [end_date_indices,end_dates] = [list(t) for t in zip(*end_dates)]
+        [end_date_indices, end_dates] = [list(t) for t in zip(*end_dates)]
         [dosage_reason_boundaries_indices, dosage_reason_boundaries] = [list(t) for t in zip(*dosage_reason_boundaries)]
         rows = [header] + zip(end_date_indices, end_dates, dosage_reason_boundaries_indices, dosage_reason_boundaries)
 
@@ -184,6 +240,12 @@ class MainWindow(QtGui.QMainWindow):
         with open(output_file_name, "wb") as f:
             writer = csv.writer(f)
             writer.writerows(rows)
+
+        output_file_name = fname[:-4]
+        output_file_name = output_file_name + '_modified.csv'
+        with open(output_file_name, "wb") as f:
+            writer = csv.writer(f)
+            writer.writerows(my_data)
 
         # Display output
         out_f = open(output_file_name, 'r')
