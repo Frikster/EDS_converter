@@ -10,6 +10,7 @@ last edited: July 2016
 """
 
 import sys, os
+import atexit
 from PyQt4 import QtGui
 from PyQt4.QtGui import *
 import csv
@@ -65,9 +66,8 @@ class MainWindow(QtGui.QMainWindow):
 
     def find_boundaries(self, my_data):
         #assume my_data has been stripped
-        date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.', 'CONTINUE' , 'CONTINUED', 'CONTINUES',
+        date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.', 'CONTINUE', 'CONTINUED', 'CONTINUES',
                              'N/A']
-        not_boundary_identifiers = ['GM', 'MG', 'X 1', 'HRS']
         not_date_identification = ['ABCDE', 'ABCD', 'BCDE']
 
         date_counts = []
@@ -95,7 +95,7 @@ class MainWindow(QtGui.QMainWindow):
                 not self.is_center_pt_number(elem) and\
                 '-' not in elem and \
                 candidate_end_date_for_set == '' and \
-                n_spaces  < 2 and \
+                n_spaces < 2 and \
                 all([i not in elem for i in not_date_identification]):
                 # The obvious hard-ass case:
                 if elem.isdigit() and all(i == 6 for i in map(len, elem_6_split)):
@@ -119,7 +119,7 @@ class MainWindow(QtGui.QMainWindow):
                     else:
                         unsolvable_problem = False
                         if elem_6_split_isdigit[0]:
-                            #Could have adate_replacement attatched to it... sighs
+                            # Could have a date_replacement attatched to it... sighs
                             for i in range(len(elem_6_split)):
                                 if elem_6_split[i].isdigit():
                                     candidate = candidate + elem_6_split[i]
@@ -167,36 +167,56 @@ class MainWindow(QtGui.QMainWindow):
                         break
                 date_counts = date_counts + [(ind, count, my_data[date_count_ind-count:date_count_ind])]
                 date_count_ind, date_count = date_counts[-1][0], date_counts[-1][1]
+
             ##############################
             ### Check for the boundary ###
             if candidate_end_date_for_set != '':
-                if '3 3 3' in elem:
-                    print('')
-
                 n_spaces = elem.count(' ')
-                boundary_list = [i for i in elem.split()]
+                not_boundary_identifiers = ['GM', 'MG', 'X 1', 'HRS']
+                boundary_list = elem.split()
                 boundary_digits_list = [s for s in boundary_list if s.isdigit()]
                 boundary_strings_list = [s for s in boundary_list if not s.isdigit()]
+                boundary_has_digit_list = [s for s in boundary_list if hasNumbers(s)]
 
                 remove_spaces_elem = elem.replace(' ', '')
-                # CRITERIA are DEBATEABLE!!!
-                if  all(i > 1 for i in map(len, boundary_strings_list)) and\
-                    (any(hasNumbers(i) for i in boundary_strings_list) or  boundary_strings_list == []) and\
-                    (ind - date_count_ind) >= ((date_count * 2)-1) and\
-                    ((all(i == 1 for i in map(len, boundary_digits_list)) and
-                    boundary_digits_list != [] and
-                    n_spaces >= 1) or (len(remove_spaces_elem) < 6 and
-                    remove_spaces_elem.isdigit())) and\
-                    all([i not in elem for i in not_boundary_identifiers]):
-                    #(ind - date_count_ind) >= ((date_count * 2)-1) and \
-                    #  There are cases where you might have 3 dates and only 1 dose and 0 dosage...
-                    #(len(boundary_list) - len(boundary_digits_list) < 2 and
-                    # There are numerous cases like '3 2 3 7 2 7 1 2 1 1ANTIBIOTIC PROPHYLAXIS' or even more words stuck
-                    # on
 
-                    # Check if boundary is a reasonable distance away from associated end_date
-                    # CRITERIA DEBATEABLE: MADE IT DOUBLE (3 items to boundary * 2) WHAT IT SHOULD BE
-                    # (don't forget dates aren't properly split yet)
+                # CRITERIA are DEBATEABLE!!! (ordered roughly by importance
+                number_parts_with_digits_threshold = len(boundary_has_digit_list) > date_counts[-1][1]
+                alone_numbers_1to8 = all(0 < int(i) < 9 for i in map(len, boundary_digits_list)) \
+                                     and len(boundary_digits_list) > 0
+                only_numbers_and6_and1to8 = (len(remove_spaces_elem) < 6 and remove_spaces_elem.isdigit()) \
+                                            and alone_numbers_1to8  # gets obvious case
+                alone_strings_len = all(i > 1 for i in map(len, boundary_strings_list))  # must contain a number
+                space_threshold_met = (n_spaces >= 1)
+                no_not_boundaries = all([i not in elem for i in not_boundary_identifiers])
+                #no_strings = (boundary_strings_list == [])
+
+                # Other cases not identified (removed directly from file since they are few)
+                # (ind - date_count_ind) >= ((date_count * 2)-1) and \
+                #  There are cases where you might have 3 dates and only 1 dose and 0 dosage...
+                # (len(boundary_list) - len(boundary_digits_list) < 2 and
+                # There are numerous cases like '3 2 3 7 2 7 1 2 1 1ANTIBIOTIC PROPHYLAXIS' or even more words stuck
+                # on
+
+                # Check if boundary is a reasonable distance away from associated end_date
+                # CRITERIA DEBATEABLE: MADE IT DOUBLE (3 items to boundary * 2) WHAT IT SHOULD BE
+                # (don't forget dates aren't properly split yet)
+
+                # todo:
+                # only the digits 1,2,3,4,5,6,7,8 can be on the boundary <- happens a lot where dosage numbers are picked up
+                # 1. More than one space between numbers in boundary. Incorrect split messing up whole set <<<< HAPPENS THE MOST AND A LOT
+                # 2. Attatched Letters at end
+                # 3. 4 number dates
+                # 4. multi-digit standalone numbers things being identified as boundaries
+                # 5. single standalone digit numbers being misidentified as boundaries
+                # 6. Cases like "1/2 TAB BID L TAB AM" actually make it through and are identified as boundaries...
+                # another e.g. 1 DOSE MD 7/21/93, TOTAL 3 DOSES HR >40 BP >110
+                # 7. 01194: end_date should be 'U'
+                # 8. Sometimes there is a combo problem 1 3 3 1U  1 1 <- two spaces + letter in middle
+
+
+                if  only_numbers_and6_and1to8 or \
+                        (alone_numbers_1to8 and alone_strings_len and space_threshold_met and no_not_boundaries):
                     if ind - date_count_ind > date_count * 6:
                         dosage_reason_boundaries = dosage_reason_boundaries + [(ind, my_data[ind]
                         +" BOUNDARY TOO FAR FROM DATES OR OTHER PROBLEM - SKIPPING WHOLE SECTION")]
@@ -261,7 +281,7 @@ class MainWindow(QtGui.QMainWindow):
         eds_mod_file_name = eds_mod_file_name + '_modified.csv'
         with open(eds_mod_file_name, "wb") as f:
             writer = csv.writer(f)
-            writer.writerows(my_data)
+            writer.writerows([[i] for i in my_data])
 
         # Display output
         out_f = open(output_file_name, 'r')
