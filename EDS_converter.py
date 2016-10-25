@@ -216,7 +216,8 @@ class MainWindow(QtGui.QMainWindow):
 
 
                 if  only_numbers_and6_and1to8 or \
-                        (alone_numbers_1to8 and alone_strings_len and space_threshold_met and no_not_boundaries):
+                        (alone_numbers_1to8 and number_parts_with_digits_threshold and
+                             alone_strings_len and space_threshold_met and no_not_boundaries):
                     if ind - date_count_ind > date_count * 6:
                         dosage_reason_boundaries = dosage_reason_boundaries + [(ind, my_data[ind]
                         +" BOUNDARY TOO FAR FROM DATES OR OTHER PROBLEM - SKIPPING WHOLE SECTION")]
