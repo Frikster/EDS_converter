@@ -379,13 +379,13 @@ class MainWindow(QtGui.QMainWindow):
             drugs_rows = drugs_rows + [drug_row]
         # retrieve dose and dosage
         dose_dosage_rows = []
-        for segment in zip(end_date_indices, dates_converted, dosage_reason_boundaries_indices):
-            segment_count = (len(segment[1])/2)
-            end_date_ind = segment[0]
+        for segment in zip(end_date_indices, end_date_count, dosage_reason_boundaries_indices):
+            #segment_count = (len(segment[1])/2)
+            segment_start = segment[0] + segment[1]
             segment_end = segment[2]
             dose_dosage_row = []
-            for dose_dosage in my_data[end_date_ind:segment_end]:
-                dose_dosage_row = dose_dosage + [dose_dosage]
+            for dose_dosage in my_data[segment_start:segment_end]:
+                dose_dosage_row = dose_dosage_row + [dose_dosage]
             dose_dosage_rows = dose_dosage_rows + [dose_dosage_row]
         # retrieve reason and conclusion
         reason_conclusion_rows = []
@@ -393,7 +393,7 @@ class MainWindow(QtGui.QMainWindow):
             segment_count = (len(segment[1]) / 2)
             segment_start = segment[0]
             reason_conclusion_row = []
-            for reason_conclusion in my_data[segment_start:segment_count*2]:
+            for reason_conclusion in my_data[segment_start:segment_start + (segment_count*2)]:
                 reason_conclusion_row = reason_conclusion_row + [reason_conclusion]
                 reason_conclusion_rows = reason_conclusion_rows + [reason_conclusion_row]
 
@@ -409,6 +409,17 @@ class MainWindow(QtGui.QMainWindow):
         with open(output_file_name, "wb") as f:
             writer = csv.writer(f)
             writer.writerows(rows)
+
+        # Display output
+        out_f = open(output_file_name, 'r')
+        with out_f:
+            data = out_f.read()
+            self.textEdit.setText(data)
+        w = QWidget()
+        QMessageBox.information(w, "ALMOST THERE",
+                                "If this file looks good a quick reshape should make everything fine."
+                                + output_file_name)
+
         # # Split all the end_dates correctly
         # date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.',
         #                      'CONTINUE', 'CONTINUED', 'CONTINUES','N/A']
