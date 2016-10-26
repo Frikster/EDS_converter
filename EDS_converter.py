@@ -215,9 +215,6 @@ class MainWindow(QtGui.QMainWindow):
                 # except:
                 #     print('dfg')
 
-                if '5 DOSES (8)' in elem:
-                    print('')
-
                 if digits_before_not_digit == 1:
                     one_digit_special_condition = (date_count <= 2)
 
@@ -348,46 +345,79 @@ class MainWindow(QtGui.QMainWindow):
         w = QWidget()
         QMessageBox.information(w, "Sorry", "The Rest of EDS_converter 2.0 is still under construction")
 
+        date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.',
+                              'CONTINUE', 'CONTINUED', 'CONTINUES','N/A']
 
-        # Find locations and values for all dosage_reason boundaries
-        # Find locations and values for all
-        dosage_reason_boundaries = []
+        header = ['drugs',
+                  'end_dates',
+                  'start_dates',
+                  'dosage_reason_boundary indices in EDS',
+                  'dosage_reason_boundaries']
 
+        # split dates retrieved and update date counts:
+        #  [end_date_indices, end_date_count, dates_section]
+        # [dosage_reason_boundaries_indices, dosage_reason_boundaries]
+        dates_converted = []
+        for j in range(len(dates_section)):
+            date_converted_row = []
+            for i in range(len(dates_section[j])):
+                if dates_section[j] not in date_replacements and len(dates_section[j][i]) > 6:
+                    date_converted = textwrap.wrap(dates_section[j][i], 6)
+                    date_converted_row = date_converted_row + date_converted
+                else:
+                    date_converted_row = date_converted_row + date_converted
+            dates_converted = dates_converted + [date_converted_row]
+        assert(len(end_date_indices) == len(dates_converted))
+        # retrieve the drugs
+        drugs_rows = []
+        for segment in zip(end_date_indices, dates_converted):
+            segment_count = (len(segment[1])/2)
+            end_date_ind = segment[0]
+            drug_row = []
+            for drug in my_data[end_date_ind-segment_count:end_date_ind]:
+                drug_row = drug_row + [drug]
+            drugs_rows = drugs_rows + [drug_row]
+        # retrieve dose and dosage
+        dose_dosage_rows = []
+        for segment in zip(end_date_indices, dates_converted, dosage_reason_boundaries_indices):
+            segment_count = (len(segment[1])/2)
+            end_date_ind = segment[0]
+            segment_end = segment[2]
+            dose_dosage_row = []
+            for dose_dosage in my_data[end_date_ind:segment_end]:
+                dose_dosage_row = dose_dosage + [dose_dosage]
+            dose_dosage_rows = dose_dosage_rows + [dose_dosage_row]
+        # retrieve reason and conclusion
+        reason_conclusion_rows = []
+        for segment in zip(dosage_reason_boundaries_indices, dates_converted):
+            segment_count = (len(segment[1]) / 2)
+            segment_start = segment[0]
+            reason_conclusion_row = []
+            for reason_conclusion in my_data[segment_start:segment_count*2]:
+                reason_conclusion_row = reason_conclusion_row + [reason_conclusion]
+                reason_conclusion_rows = reason_conclusion_rows + [reason_conclusion_row]
 
+        # save to csv
+        header = ['drugs',
+                  'dates',
+                  'dose_dosage',
+                  'reason_conclusion']
+        rows = [header] + zip(drugs_rows, dates_converted, dose_dosage_rows, reason_conclusion_rows)
 
-
-        # # Remove all non-date numbers
-        # # And get a count of how many dates there should be. The dict can be used if other methods fail to find # dates
-        # # Carefully decide on criteria for detecting the boundary below
-        # dates_counts_boundary = []
-        # for ind in range(len(my_data)):
-        #     n_spaces = my_data[ind].strip().count(' ')
-        #     boundary_list = [i for i in my_data[ind].split()]
-        #     comparrison_list = [s for s in boundary_list if s.isdigit()]
-        #     remove_spaces = my_data[ind].replace(' ', '')
-        #     if (len(boundary_list) - len(comparrison_list) < 2 and\
-        #             all(i == 1 for i in map(len, comparrison_list)) and\
-        #                     comparrison_list != [] and \
-        #                     n_spaces > 1) or (len(remove_spaces) < 6 and
-        #                                                          remove_spaces.isdigit() and
-        #                                                              n_spaces > 1):
-        #         print(
-        #             "Deleting " + str(my_data[ind]) + " at index " + str(ind) + " with len " + str(
-        #                 len(my_data[ind])))
-        #         dates_counts_boundary = dates_counts_boundary + [my_data[ind]]
-        #         # Create a boundary between Dosage and Reason
-        #         my_data[ind] = '__Dosage_Reason__'
-        #
+        output_file_name = fname[:-4]
+        output_file_name = output_file_name + '_preliminary.csv'
+        with open(output_file_name, "wb") as f:
+            writer = csv.writer(f)
+            writer.writerows(rows)
         # # Split all the end_dates correctly
-        # # dates are often replaced with 'U' or 'CON'
-        # # CON = continuous as in ongoing
-        # date_replacements = ['CON', 'U', 'CONT']
+        # date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.',
+        #                      'CONTINUE', 'CONTINUED', 'CONTINUES','N/A']
         # ind = 0
         # dates_counts = []
         # end_date_inds = []
         # end_date_found = False
         # dates_count = 0
-        # # dates_counts counts up the numer of dates (end and start dates together) and starting at each end_date_ind
+        # # dates_counts counts up the number of dates (end and start dates together) and starting at each end_date_ind
         # for ind in range(len(my_data)):
         #     elem = my_data[ind]
         #     elem = elem.replace(' ', '')
