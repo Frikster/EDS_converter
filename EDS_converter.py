@@ -172,7 +172,7 @@ class MainWindow(QtGui.QMainWindow):
             ### Check for the boundary ###
             if candidate_end_date_for_set != '':
                 n_spaces = elem.count(' ')
-                not_boundary_identifiers = ['GMS-6']
+                not_boundary_identifiers = ['1 1/2 CONS', '2 GMS-6', '5 DOSES (8)']
                 boundary_list = elem.split()
                 boundary_digits_list = [s for s in boundary_list if s.isdigit()]
                 boundary_strings_list = [s for s in boundary_list if not s.isdigit()]
@@ -180,8 +180,14 @@ class MainWindow(QtGui.QMainWindow):
                 boundary_has_digit_strings_list = [s for s in boundary_has_digit_list if not s.isdigit()]
 
                 remove_spaces_elem = elem.replace(' ', '')
+                digits_before_not_digit = 0
+                for char in remove_spaces_elem:
+                    if char.isdigit():
+                        digits_before_not_digit = digits_before_not_digit + 1
+                    else:
+                        break
 
-                # CRITERIA are DEBATEABLE!!! (ordered roughly by importance
+                # CRITERIA are DEBATEABLE!!!
                 number_parts_with_digits_threshold = len(boundary_has_digit_strings_list) > 0 \
                                                      and hasNumbers(boundary_has_digit_strings_list[0])
                 alone_numbers_1to8 = all(0 < int(i) < 9 for i in boundary_digits_list) \
@@ -189,15 +195,35 @@ class MainWindow(QtGui.QMainWindow):
                 only_numbers_and6_and1to8 = (len(remove_spaces_elem) < 6 and remove_spaces_elem.isdigit()) \
                                             and alone_numbers_1to8  # gets obvious case
                 alone_strings_len = all((len(i) > 3 or hasNumbers(i)) for i in boundary_strings_list)  # must contain a number else be a word
+                first_first_char_is_digit = boundary_list[0][0].isdigit()
                 space_threshold_met = (n_spaces >= 1)
                 no_not_boundaries = all([i not in elem for i in not_boundary_identifiers])
                 one_digit_special_condition = True
+                second_first_char_is_digit = True
+                if len(boundary_list) > 1:
+                    second_first_char_is_digit = boundary_list[1][0].isdigit()
+
+
                 # fails (seperated by ;): 6 MCG/K8/MIN ; 1 1/2 CONS ; 0.25% 1 SPRAY ; 2 MG-4MG ; N-100 2 ; 1:1 DRIP 5 MG/HR ; PRN: 8 DOSES (2 MGS) ; LR09664 1 UNIT ; 1 (5ML) ; 7 (0.15) DOSES 2 (0.3) DOSES ; 1 UNIT, LG46490 ; 3 (25) DOSES ; 5 DOSES (8)
                 # more: Q4H 1 ; Q2-4H 7 ; Q2H 3 ; Q4H 3 ; Q6H 5 ; 3 GM/1 LITER ; Q4H 1 DOSE ; Q4-6' 7 ; #3 2 TABS ; 1 ML/HR .2 MEQ/ML
-                if '50 MG/250 D5W' in elem: #seoncd has
-                    print('h')
-                if len(boundary_has_digit_list) == 1:
-                    one_digit_special_condition = (date_count <= 2) and len(boundary_has_digit_list[0]) == 1
+                # if '50 MG/250 D5W' in elem: #second has
+                #     print('h')
+                # try:
+                #     if len(boundary_has_digit_list) == 1 or (first_first_char_is_digit and
+                #                                                  not second_first_char_is_digit):
+                #         one_digit_special_condition = (date_count <= 2) and len(boundary_has_digit_list[0]) == 1
+                # except:
+                #     print('dfg')
+
+                if '5 DOSES (8)' in elem:
+                    print('')
+
+                if digits_before_not_digit == 1:
+                    one_digit_special_condition = (date_count <= 2)
+
+                    # len(boundary_has_digit_list) == 1 or (first_first_char_is_digit and
+                    #                                          not second_first_char_is_digit):
+                    # one_digit_special_condition = (date_count <= 2) and len(boundary_has_digit_list[0]) == 1
                     # Additionally check if there is only one "standalone" string... this is not a boundary if there is
                     # if one_digit_special_condition:
                     #     one_digit_special_condition = len(boundary_strings_list) != 1
@@ -237,7 +263,8 @@ class MainWindow(QtGui.QMainWindow):
                 if  (only_numbers_and6_and1to8 and one_digit_special_condition) or \
                         (alone_numbers_1to8 and alone_strings_len and
                              space_threshold_met and no_not_boundaries and
-                             number_parts_with_digits_threshold and one_digit_special_condition):
+                             number_parts_with_digits_threshold and first_first_char_is_digit and
+                             one_digit_special_condition):
 
                     if ind - date_count_ind > date_count * 6:
                         dosage_reason_boundaries = dosage_reason_boundaries + [(ind, my_data[ind]
