@@ -402,7 +402,7 @@ class MainWindow(QtGui.QMainWindow):
         print('Retrieving Dose and Dosage...')
         # retrieve dose and dosage
         dose_dosage_rows = []
-        for segment in zip(end_date_indices, new_date_count, dosage_reason_boundaries_indices):
+        for segment in zip(end_date_indices, end_date_count, dosage_reason_boundaries_indices):
             # segment_count = (len(segment[1])/2)
             segment_start = segment[0] + segment[1]
             segment_end = segment[2]
@@ -423,7 +423,21 @@ class MainWindow(QtGui.QMainWindow):
                 # assume one value missing
                 segment_count = ((len(segment[1])+1) / 2)
             segment_start = segment[0]
-            reason_conclusion_rows = reason_conclusion_rows + [my_data[segment_start:segment_start + (segment_count*2)]]
+            # sometimes the boundary is split e.g '3 1', '1' at the start.
+            # Offset to get everything to the end of the conclusions
+            offset = 0
+            flag = True
+            i = segment_start
+            while(flag):
+                candidate = my_data[i].replace(" ", "")
+                if not candidate.isdigit():
+                 flag = False
+                else:
+                 offset = offset + 1
+                 i = i + 1
+            reason_conclusion_rows = reason_conclusion_rows + [my_data[segment_start:segment_start +
+                                                                                     (segment_count*2) +
+                                                               offset]]
             # reason_conclusion_row = []
             # for reason_conclusion in my_data[segment_start:segment_start + (segment_count*2)]:
             #     reason_conclusion_row = reason_conclusion_row + [reason_conclusion]
@@ -444,14 +458,209 @@ class MainWindow(QtGui.QMainWindow):
             writer.writerows(rows)
 
         # Display output
+        # out_f = open(output_file_name, 'r')
+        # with out_f:
+        #     data = out_f.read()
+        #     self.textEdit.setText(data)
+        #w = QWidget()
+        # QMessageBox.information(w, "ALMOST THERE",
+        #                         "If this file looks good a quick reshape should make everything fine."
+        #                         + output_file_name)
+
+        # offset = -1
+        # flag = True
+        # i = segment_start
+        # while (flag):
+        #     candidate = my_data[i].replace(" ", "")
+        #     if not candidate.isdigit():
+        #         flag = False
+        #     else:
+        #         offset = offset + 1
+        #         i = i + 1
+        reason_conclusion_rows_cleaned = []
+        offsets = []
+        reason_conclusion_boundaries = []
+        for rc_segment in reason_conclusion_rows:
+            offset = 0
+            for elem in rc_segment:
+                if elem.replace(" ", "").isdigit():
+                    offset = offset + 1
+                else:
+                    offsets = offsets + [offset]
+                    break
+            reason_conclusion_boundary = rc_segment[0:offset]
+            reason_conclusion_rows_cleaned = reason_conclusion_rows_cleaned + [rc_segment[offset:]]
+            reason_conclusion_boundary = [x.replace(' ', '') for x in reason_conclusion_boundary]
+            reason_conclusion_boundary = ''.join(reason_conclusion_boundary)
+            reason_conclusion_boundaries = reason_conclusion_boundaries + [reason_conclusion_boundary]
+
+        #reason_conclusion_boundaries = [x[0:offsets[i]] for i, x in enumerate(reason_conclusion_rows)]
+        #reason_conclusion_boundaries = [str.split(x) for x in reason_conclusion_boundaries]
+        rows = zip(drugs_rows, dates_converted, dose_dosage_rows, reason_conclusion_rows_cleaned)
+        #self.reshape_for_kip(rows_mod, reason_conclusion_boundaries, fname)
+
+
+        header = ['drug', 'end_date', 'start_date', 'dose', 'dosage', 'reason', 'conclusion', 'problem']
+        output_file_name = fname[:-4]
+        output_file_name = output_file_name + '_FINAL.csv'
+        with open(output_file_name, "wb") as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+
+            for row_no, row in enumerate(rows):
+                for i, drug in enumerate(row[0]):
+                    problem = ''
+                    try:
+                        end_date = row[1][i]
+                    except:
+                        problem = problem + ' problem in end date'
+                        end_date = 'MISSING'
+                    try:
+                        start_date = row[1][i+len(row[0])]
+                    except:
+                        problem = problem + ' problem in start date'
+                        start_date = 'MISSING'
+                    try:
+                        dose = row[2][i]
+                    except:
+                        problem = problem + ' problem in dose'
+                        dose = 'MISSING'
+                    try:
+                        dosage = row[2][i+len(row[0])]
+                    except:
+                        problem = problem + ' problem in dosage'
+                        dosage = 'MISSING'
+                    try:
+                        reason = row[3][i]
+                    except:
+                        problem = problem + ' problem in reason'
+                        reason = 'MISSING'
+                    try:
+                        conclusion = row[3][i+len(row[0])]
+                    except:
+                        problem = problem + ' problem in conclusion'
+                        conclusion = 'MISSING'
+                    writer.writerow([drug, end_date, start_date, dose, dosage, reason, conclusion, problem])
+
+        # Display output
         out_f = open(output_file_name, 'r')
         with out_f:
             data = out_f.read()
             self.textEdit.setText(data)
         w = QWidget()
-        QMessageBox.information(w, "ALMOST THERE",
-                                "If this file looks good a quick reshape should make everything fine."
+        QMessageBox.information(w, "Conversion Complete",
+                                "csv saved to "
                                 + output_file_name)
+
+
+
+    def reshape_for_kip(self, rows, reason_conclusion_boundaries, fname):
+        # format recieved by function
+        # header = ['drugs',
+        #           'dates',
+        #           'dose_dosage',
+        #           'reason_conclusion'] reason_conclusion has the boundary at the front
+
+        header = ['drug', 'end_date', 'start_date', 'dose', 'dosage', 'reason', 'conclusion', 'problem']
+        output_file_name = fname[:-4]
+        output_file_name = output_file_name + '_FINAL.csv'
+        with open(output_file_name, "wb") as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+
+            for row_no, row in enumerate(rows):
+                for i, drug in enumerate(row[0]):
+                    problem = ''
+                    try:
+                        end_date = row[1][i]
+                    except:
+                        problem = problem + 'problem in end date'
+                        end_date = 'MISSING'
+                    try:
+                        start_date = row[1][i+len(row[0])]
+                    except:
+                        problem = problem + 'problem in start date'
+                        start_date = 'MISSING'
+                    try:
+                        dose = row[2][i]
+                    except:
+                        problem = problem + 'problem in dose'
+                        dose = 'MISSING'
+                    try:
+                        dosage = row[2][i+len(row[0])]
+                    except:
+                        problem = problem + 'problem in dosage'
+                        dosage = 'MISSING'
+                    try:
+                        reason = row[3]
+                    except:
+                        problem = problem + 'problem in reason'
+                        reason = 'MISSING'
+                    try:
+                        conclusion = row[3][i+len(row[0])]
+                    except:
+                        problem = problem + 'problem in conclusion'
+                        conclusion = 'MISSING'
+                    writer.writerow([drug, end_date, start_date, dose, dosage, reason, conclusion, problem])
+
+
+        # end_dates = []
+        # start_dates = []
+        # problem_section = []
+        # for row_no, row in enumerate(rows):
+        #     date_segment = row[1]
+        #     if (len(date_segment) % 2 == 0):
+        #         # let's be hyper sure about these dates:
+        #         if (len(reason_conclusion_boundaries[row_no]) * 2 != len(date_segment)):
+        #             problem_section + problem_section + [(row_no, 'boundary and number of dates do not match')]
+        #         end_dates = end_dates + date_segment[0:(len(date_segment)/2)]
+        #         start_dates = start_dates + date_segment[(len(date_segment)/2):]
+        #     else:
+        #         problem_section = problem_section + [(row_no, 'Odd number of dates')]
+        #         end_dates = end_dates + date_segment[0:(len(date_segment)/2)]
+        #         start_dates = start_dates + date_segment[(len(date_segment)/2):] + ['Missing']
+        #
+        # drugs = []
+        # for row_no, row in enumerate(rows):
+        #     drug_segment = row[0]
+        #     drugs = drugs + [drug_segment]
+        # assert(len(drugs) == len(end_dates))
+        #
+        # doses = []
+        # dosages = []
+        # problem_section = []
+        # for row_no, row in enumerate(rows):
+        #     dd_segment = row[2]
+        #     if (len(dd_segment) % 2 == 0):
+        #         # let's be hyper sure about these dates:
+        #         assert (len(reason_conclusion_boundaries[row_no]) * 2 == len(dd_segment))
+        #         doses = doses + dd_segment[0:(len(dd_segment)/2)]
+        #         dosages = dosages + dd_segment[(len(dd_segment)/2):]
+        #     else:
+        #         problem_section = problem_section + [(row_no, 'Missing value(s) in dose or dosage')]
+        #         doses = doses + dd_segment[0:(len(dd_segment)/2)]
+        #         dosages = dosages + dd_segment[(len(dd_segment)/2):] + ['Missing']
+        # assert(len(doses) == len(end_dates))
+        # assert(len(dosages) == len(end_dates))
+        #
+        # reasons = []
+        # conclusions = []
+        # problem_section = []
+        # for row_no, row in enumerate(rows):
+        #     rc_segment = row[3]
+        #     if (len(rc_segment) % 2 == 0):
+        #         # let's be hyper sure about these dates:
+        #         assert (len(reason_conclusion_boundaries[row_no]) * 2 == len(rc_segment))
+        #         reasons = reasons + rc_segment[0:(len(rc_segment)/2)]
+        #         conclusions = conclusions + rc_segment[(len(rc_segment)/2):]
+        #     else:
+        #         problem_section = problem_section + [(row_no, 'Missing value(s) in reason or conclusion')]
+        #         reasons = reasons + rc_segment[0:(len(rc_segment)/2)]
+        #         conclusions = conclusions + rc_segment[(len(rc_segment)/2):] + ['Missing']
+        # assert(len(reasons) == len(end_dates))
+        # assert(len(conclusions) == len(end_dates))
+        #
+        # return rows
 
     def clean_dosage_reason_boundary(self, dosage_reason_boundary):
         split_boundary_raw = [str.split(x) for x in dosage_reason_boundary]
@@ -477,5 +686,5 @@ if __name__ == '__main__':
     window.show()
     app.exec_()
     closeInput = raw_input("Press ENTER to exit")
-    print( "Closing...")
+    print("Closing...")
     sys.exit(app.exec_())
