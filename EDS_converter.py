@@ -334,30 +334,23 @@ class MainWindow(QtGui.QMainWindow):
         with out_f:
             data = out_f.read()
             self.textEdit.setText(data)
-        w = QWidget()
-        QMessageBox.information(w, "IMPORTANT",
-                                "please check foundations are correct before continuing. csv saved to "
-                                + output_file_name)
-        w = QWidget()
-        QMessageBox.information(w, "EDS converted to preliminary csv",
-                                "Cross-reference foundations against the EDS csv saved to "
-                                + eds_mod_file_name)
         # w = QWidget()
-        # QMessageBox.information(w, "Sorry", "The Rest of EDS_converter 2.0 is still under construction")
+        # QMessageBox.information(w, "IMPORTANT",
+        #                         "please check foundations are correct before continuing. csv saved to "
+        #                         + output_file_name)
+        # w = QWidget()
+        # QMessageBox.information(w, "EDS converted to preliminary csv",
+        #                         "Cross-reference foundations against the EDS csv saved to "
+        #                         + eds_mod_file_name)
 
         # clean the boundary and get something to compare dates against
-        [dosage_reason_boundaries_cleaned, tacked_on] = self.clean_dosage_reason_boundary(dosage_reason_boundaries)
-
-        str.split(dosage_reason_boundaries[j])
+        [dosage_reason_boundaries_cleaned, tacked_on] = zip(*self.clean_dosage_reason_boundary(dosage_reason_boundaries))
+        dosage_reason_boundaries_cleaned = list(dosage_reason_boundaries_cleaned)
+        tacked_on = list(tacked_on)
+        assert(len(dosage_reason_boundaries_cleaned) == len(dates_section))
 
         date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.',
                               'CONTINUE', 'CONTINUED', 'CONTINUES','N/A']
-
-        header = ['drugs',
-                  'end_dates',
-                  'start_dates',
-                  'dosage_reason_boundary indices in EDS',
-                  'dosage_reason_boundaries']
 
         # split dates retrieved and update date counts:
         # [end_date_indices, end_date_count, dates_section]
@@ -374,42 +367,67 @@ class MainWindow(QtGui.QMainWindow):
                     date_converted = [dates_section[j][i]]
                     date_converted_row = date_converted_row + date_converted
             dates_converted = dates_converted + [date_converted_row]
-            # check that dates mirror boundary as expected in each case
-        assert(len(end_date_indices) == len(dates_converted))
+        new_date_count = [len(x) for x in dates_converted]
         print('Dates retrieved.')
+        print('Checking that date count matches boundary lengths')
+
+        #boundary_lengths = [len(x) for x in dosage_reason_boundaries_cleaned]
+        # check date lengths and boundary lengths match
+        ####
+        # for i in range(len(dates_section)):
+        #     if((len(dates_converted[i])/2) != boundary_lengths[i] and
+        #     not (len(dates_converted[i]) == 1 and boundary_lengths[i] == 1)):
+        #         if(tacked_on[i] == []):
+        #             assert(False)
+        # print('check complete')
+        # print('all rows with values in tacked on are suspicious')
+        #####
         print('Retrieving drugs...')
         # retrieve the drugs
         drugs_rows = []
         for segment in zip(end_date_indices, dates_converted):
-            segment_count = (len(segment[1])/2)
+            if (len(segment[1]) % 2 == 0):
+                segment_count = (len(segment[1])/2)
+            else:
+                # assume one value missing
+                segment_count = ((len(segment[1])+1) / 2)
             end_date_ind = segment[0]
-            drug_row = []
-            for drug in my_data[end_date_ind-segment_count:end_date_ind]:
-                drug_row = drug_row + [drug]
-            drugs_rows = drugs_rows + [drug_row]
+            drugs_rows = drugs_rows + [my_data[end_date_ind-segment_count:end_date_ind]]
+            # drug_row = []
+            # for drug in my_data[end_date_ind-segment_count:end_date_ind]:
+            #     drug_row = drug_row + [drug]
+            # drugs_rows = drugs_rows + [drug_row]
         print('Drugs retrieved')
+        assert(len(drugs_rows)==len(dates_converted))
         print('Retrieving Dose and Dosage...')
         # retrieve dose and dosage
         dose_dosage_rows = []
-        for segment in zip(end_date_indices, end_date_count, dosage_reason_boundaries_indices):
+        for segment in zip(end_date_indices, new_date_count, dosage_reason_boundaries_indices):
             # segment_count = (len(segment[1])/2)
             segment_start = segment[0] + segment[1]
             segment_end = segment[2]
-            dose_dosage_row = []
-            for dose_dosage in my_data[segment_start:segment_end]:
-                dose_dosage_row = dose_dosage_row + [dose_dosage]
-            dose_dosage_rows = dose_dosage_rows + [dose_dosage_row]
+            dose_dosage_rows = dose_dosage_rows + [my_data[segment_start:segment_end]]
+            # dose_dosage_row = []
+            # for dose_dosage in my_data[segment_start:segment_end]:
+            #     dose_dosage_row = dose_dosage_row + [dose_dosage]
+            # dose_dosage_rows = dose_dosage_rows + [dose_dosage_row]
         print('Dose and Dosage retrieved')
+        assert (len(dose_dosage_rows) == len(dates_converted))
         print('Retrieving Reason and Conslusion...')
         # retrieve reason and conclusion
         reason_conclusion_rows = []
         for segment in zip(dosage_reason_boundaries_indices, dates_converted):
-            segment_count = (len(segment[1]) / 2)
+            if (len(segment[1]) % 2 == 0):
+                segment_count = (len(segment[1])/2)
+            else:
+                # assume one value missing
+                segment_count = ((len(segment[1])+1) / 2)
             segment_start = segment[0]
-            reason_conclusion_row = []
-            for reason_conclusion in my_data[segment_start:segment_start + (segment_count*2)]:
-                reason_conclusion_row = reason_conclusion_row + [reason_conclusion]
-                reason_conclusion_rows = reason_conclusion_rows + [reason_conclusion_row]
+            reason_conclusion_rows = reason_conclusion_rows + [my_data[segment_start:segment_start + (segment_count*2)]]
+            # reason_conclusion_row = []
+            # for reason_conclusion in my_data[segment_start:segment_start + (segment_count*2)]:
+            #     reason_conclusion_row = reason_conclusion_row + [reason_conclusion]
+            # reason_conclusion_rows = reason_conclusion_rows + [reason_conclusion_row]
         print('Dose and Dosage retrieved')
         print('Collecting data... saving to csv...')
         # save to csv
@@ -436,7 +454,20 @@ class MainWindow(QtGui.QMainWindow):
                                 + output_file_name)
 
     def clean_dosage_reason_boundary(self, dosage_reason_boundary):
-        return [[], []]
+        split_boundary_raw = [str.split(x) for x in dosage_reason_boundary]
+        dosage_reason_boundary_cleaned = []
+        for raw_boundary in split_boundary_raw:
+            single_boundary_cleaned = []
+            tacked_on = []
+            end_of_boundary_found = False
+            for elem in raw_boundary:
+                if elem.isdigit() and not end_of_boundary_found:
+                    single_boundary_cleaned = single_boundary_cleaned + [elem]
+                else:
+                    end_of_boundary_found = True
+                    tacked_on = tacked_on + [elem]
+            dosage_reason_boundary_cleaned = dosage_reason_boundary_cleaned + [(single_boundary_cleaned, tacked_on)]
+        return dosage_reason_boundary_cleaned
 
 
 
