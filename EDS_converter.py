@@ -335,14 +335,14 @@ class MainWindow(QtGui.QMainWindow):
         with out_f:
             data = out_f.read()
             self.textEdit.setText(data)
-        # w = QWidget()
-        # QMessageBox.information(w, "IMPORTANT",
-        #                         "please check foundations are correct before continuing. csv saved to "
-        #                         + output_file_name)
-        # w = QWidget()
-        # QMessageBox.information(w, "EDS converted to preliminary csv",
-        #                         "Cross-reference foundations against the EDS csv saved to "
-        #                         + eds_mod_file_name)
+        w = QWidget()
+        QMessageBox.information(w, "For Debugging:",
+                                "Foundations are assumed to be correct. csv saved to "
+                                + output_file_name)
+        w = QWidget()
+        QMessageBox.information(w, "Modified EDS generated",
+                                "The modified EDS can be loaded if results are too bad "
+                                + eds_mod_file_name)
 
         # clean the boundary and get something to compare dates against
         [dosage_reason_boundaries_cleaned, tacked_on] = zip(*self.clean_dosage_reason_boundary(dosage_reason_boundaries))
@@ -386,7 +386,7 @@ class MainWindow(QtGui.QMainWindow):
         print('Retrieving drugs and checking for patient IDs...')
         # retrieve the drugs
         drugs_rows = []
-        patient_IDs = [my_data[0]]
+        patient_IDs = []
         for segment in zip(end_date_indices, dates_converted):
             if (len(segment[1]) % 2 == 0):
                 segment_count = (len(segment[1])/2)
@@ -399,6 +399,8 @@ class MainWindow(QtGui.QMainWindow):
                 patient_IDs = patient_IDs + [my_data[end_date_ind-segment_count-1]]
             else:
                 patient_IDs = patient_IDs + [patient_IDs[-1]]
+        assert(len(drugs_rows) == len(patient_IDs))
+
             # drug_row = []
             # for drug in my_data[end_date_ind-segment_count:end_date_ind]:
             #     drug_row = drug_row + [drug]
@@ -467,14 +469,14 @@ class MainWindow(QtGui.QMainWindow):
             writer.writerows(rows)
 
         # Display output
-        # out_f = open(output_file_name, 'r')
-        # with out_f:
-        #     data = out_f.read()
-        #     self.textEdit.setText(data)
-        #w = QWidget()
-        # QMessageBox.information(w, "ALMOST THERE",
-        #                         "If this file looks good a quick reshape should make everything fine."
-        #                         + output_file_name)
+        out_f = open(output_file_name, 'r')
+        with out_f:
+            data = out_f.read()
+            self.textEdit.setText(data)
+        w = QWidget()
+        QMessageBox.information(w, "ALMOST THERE",
+                                "If something looks wrong in FINAL please first see if there is a mistake in this file: "
+                                + output_file_name)
 
         # offset = -1
         # flag = True
@@ -517,7 +519,7 @@ class MainWindow(QtGui.QMainWindow):
             writer.writerow(header)
 
             for row_no, row in enumerate(rows):
-                for i, drug in enumerate(row[0]):
+                for i, drug in enumerate(row[1]):
                     problem = ''
                     patient_ID = row[0]
                     try:
