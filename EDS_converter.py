@@ -675,6 +675,8 @@ class MainWindow(QtGui.QMainWindow):
             #     drug_row = drug_row + [drug]
             # drugs_rows = drugs_rows + [drug_row]
         print('Drugs retrieved')
+        print(len(drugs_rows))
+        print(len(dates_converted))
         assert(len(drugs_rows)==len(dates_converted))
         print('Retrieving Dose and Dosage...')
         # retrieve dose and dosage
