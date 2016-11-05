@@ -510,17 +510,20 @@ class MainWindow(QtGui.QMainWindow):
         rows = zip(patient_IDs, drugs_rows, dates_converted, dose_dosage_rows, reason_conclusion_rows_cleaned)
         #self.reshape_for_kip(rows_mod, reason_conclusion_boundaries, fname)
 
-
         header = ['patient_IDs', 'drug', 'start_date', 'end_date', 'dose', 'dosage', 'reason', 'conclusion', 'problem']
         output_file_name = fname[:-4]
         output_file_name = output_file_name + '_FINAL.csv'
+        assert(len(tacked_on) == len(rows))
         with open(output_file_name, "wb") as f:
             writer = csv.writer(f)
             writer.writerow(header)
 
             for row_no, row in enumerate(rows):
                 for i, drug in enumerate(row[1]):
-                    problem = ''
+                    if tacked_on[row_no] != []:
+                        problem = ''.join(tacked_on[row_no])
+                    else:
+                        problem = ''
                     patient_ID = row[0]
                     try:
                         end_date = row[2][i]
