@@ -15,6 +15,7 @@ from PyQt4 import QtGui
 from PyQt4.QtGui import *
 import csv
 import textwrap
+import numpy as np
 
 absDirPath = os.path.dirname(__file__)
 
@@ -288,17 +289,288 @@ class MainWindow(QtGui.QMainWindow):
         return [date_counts, dosage_reason_boundaries, my_data]
 
 
+    def get_patient_ids(self, my_data):
+        #todo: delete this once you're sure it really is unneeded
+
+        # Split all the end_dates correctly
+        # date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.',
+        #                      'CONTINUE', 'CONTINUED', 'CONTINUES','N/A']
+        # ind = 0
+        # dates_counts = []
+        # end_date_inds = []
+        # end_date_found = False
+        # dates_count = 0
+        # # dates_counts counts up the number of dates (end and start dates together) and starting at each end_date_ind
+        # for ind in range(len(my_data)):
+        #     elem = my_data[ind]
+        #     elem = elem.replace(' ', '')
+        #     try:
+        #         int(elem)
+        #     except:
+        #         if elem not in date_replacements:
+        #             end_date_found = False
+        #             if dates_count > 0:
+        #                 dates_counts = dates_counts + [dates_count]
+        #                 assert (len(dates_counts) == len(end_date_inds))
+        #                 dates_count = 0
+        #             continue
+        #     # Logically if you are here elem is an integer or in date_replacements
+        #     if not end_date_found and len(elem) >= 6:
+        #         end_date_inds = end_date_inds + [ind]
+        #         try:
+        #             int(elem)
+        #         except:
+        #             assert(False)
+        #         end_date_found = True
+        #         dates_count = 1
+        #     else:
+        #         if end_date_found and (len(elem) >= 6 or elem in date_replacements):
+        #             dates_count = dates_count + 1
+
+        # problem_inds = []
+        # # Concatenate end_dates properly
+        # for ind in range(len(end_date_inds)):
+        #     date_elem = my_data[end_date_inds[ind]]
+        #     date_elem = date_elem.replace(' ', '')
+        #     date_count = dates_counts[ind]
+        #     if date_count > 1:
+        #         if (len(date_elem) / (date_count - 1)) < 6:
+        #             possible_date_concat = True
+        #             date_ind = end_date_inds[ind] + 1
+        #             add_on = ''
+        #             modifier = 2
+        #             while possible_date_concat:
+        #                 add_on = add_on + my_data[date_ind]
+        #                 if (date_count - modifier) <= 0:
+        #                     print(
+        #                     "Unsolvable problem at end_date " + date_elem + " at index " + str(end_date_inds[ind]) +
+        #                     " skipping...")
+        #                     problem_inds = problem_inds + [end_date_inds[ind]]
+        #                     break
+        #                 assert ((date_count - modifier) > 0)
+        #                 if ((len(date_elem) + len(add_on)) / (date_count - modifier) == 6):
+        #                     possible_date_concat = False
+        #                     my_data[end_date_inds[ind]] = date_elem + add_on
+        #                     for i in range(end_date_inds[ind] + 1, date_ind + 1):
+        #                         my_data[i] = ''
+        #                 date_ind = date_ind + 1
+        #                 modifier = modifier + 1
+        #                 if (ind + 1) < len(end_date_inds):
+        #                     assert (
+        #                     date_ind < end_date_inds[ind + 1])  # Otherwise you're overlapping with another date!
+        #
+        # my_data = [val for val in my_data if val != '']
+
+        # Recompute date count but for start_dates
+        # Recompute indices for end dates since you changed the array one line up
+        # Find where the dates end in each case
+        # also find pt_number_center_inds
+        end_date_inds = []
+        end_of_dates_inds = []
+        start_dates_counts = []
+        end_date_found = False
+        start_dates_count = 0
+        pt_number_center_inds = []
+        for ind in range(len(my_data)):
+            elem = my_data[ind]
+            elem = elem.replace(' ', '')
+            # add pt_number_center
+            if self.is_center_pt_number(elem):
+                pt_number_center_inds = pt_number_center_inds + [ind]
+            try:
+                int(elem)
+            except:
+                if elem not in date_replacements:
+                    end_date_found = False
+                    if start_dates_count > 0:
+                        # Problem here when looking at index 1527. start_dates_count is wrong
+                        start_dates_counts = start_dates_counts + [start_dates_count - 1]
+                        end_of_dates_inds = end_of_dates_inds + [ind]
+                        assert(len(start_dates_counts) == len(end_date_inds) == len(end_of_dates_inds))
+                        start_dates_count = 0
+                    continue
+            # Logically if you are here elem is an integer or in date_replacements
+            if not end_date_found and len(elem) >= 6:
+                end_date_inds = end_date_inds + [ind]
+                end_date_found = True
+                start_dates_count = 1
+            else:
+                if end_date_found and (len(elem) >= 6 or elem in date_replacements):
+                    start_dates_count = start_dates_count + 1
+
+        # Check to make sure that your start_date_count accounts for missing dates
+        # 1. times where end_date ends up with more dates than available start_dates
+        # 2. times where both start and end dates are just flat missing - check in the boundary dict #todo: still need to implement
+        start_dates_counts_actual = start_dates_counts[:]
+        for ind in range(len(end_date_inds)):
+            if (len(my_data[end_date_inds[ind]]) / 6) > start_dates_counts[ind]:
+                start_dates_counts_actual[ind] = (len(my_data[end_date_inds[ind]]) / 6)
+            assert ((len(my_data[end_date_inds[ind]]) / 6) <= start_dates_counts_actual[ind])
+
+        col_names = ['pt_number_center', 'drug', 'start_date', 'end_date', 'dose', 'dosing', 'reason', 'conclusion']
+        rows = [col_names]
+        problem_rows = []
+        pt_number_center_inds_ind = 0
+        # add drug, end_date, start_dates, doses, reasons and conclusion columns first
+        for ind in range(len(end_date_inds)):
+            problem_row = False
+            start_ind = end_date_inds[ind]
+            end_date_ind = end_date_inds[ind]
+            if pt_number_center_inds_ind < len(pt_number_center_inds)-1:
+                if end_date_ind > pt_number_center_inds[pt_number_center_inds_ind]\
+                        and end_date_ind < pt_number_center_inds[pt_number_center_inds_ind+1]:
+                    pt_number_center = my_data[pt_number_center_inds[pt_number_center_inds_ind]]
+                else:
+                    pt_number_center_inds_ind = pt_number_center_inds_ind + 1
+                    if pt_number_center_inds_ind < len(pt_number_center_inds) - 1:
+                        if(end_date_ind > pt_number_center_inds[pt_number_center_inds_ind]\
+                            and end_date_ind < pt_number_center_inds[pt_number_center_inds_ind+1]):
+                            pt_number_center = my_data[pt_number_center_inds[pt_number_center_inds_ind]]
+                    else:
+                        assert (pt_number_center_inds_ind == len(pt_number_center_inds) - 1)
+            else:
+                assert(pt_number_center_inds_ind == len(pt_number_center_inds)-1)
+
+            # Note we count missing start_dates as well
+            # todo: which one
+            start_date_count = start_dates_counts[ind]
+            #start_date_count = start_dates_counts_actual[ind]
+            # Find the first drug for this set
+            end_date = my_data[start_ind]
+            if start_ind in problem_inds:
+                problem_row = True
+            for i in range(1, start_date_count + 1):
+                drug_ref_inds = list(reversed(range(1, start_date_count + 1)))
+                drug_ref_ind = drug_ref_inds[i-1]
+                drug = my_data[end_date_ind - drug_ref_ind]
+                # start_ind is where the end_date for this row is
+                start_ind = end_date_ind + i
+                row = []
+                #entered_reason = False  or entered_reason
+                # start_ind_reason gives us the ind just before where we start after the boundary for this row,
+                # NOT the actual boundary though it of course will be the boundary in the first row for this set
+
+                # 2. times where both start and end dates are just flat missing
+                # - more elements than needed to get to boundary #todo: still need to implement
+                start_ind_reason = start_ind + (start_date_count * 3)
+                missing_end_and_start_date = False
+                if i == 1 and my_data[start_ind_reason] != '__Dosage_Reason__' and \
+                                '__Dosage_Reason__' not in my_data[start_ind:start_ind_reason]:
+                    missing_end_and_start_date = True
+                    inds_to_boundary = 0
+                    flag = start_ind_reason + 1
+                    while flag < len(my_data):
+                        if my_data[flag] == '__Dosage_Reason__':
+                            inds_to_boundary = flag - start_ind_reason
+                            break
+                        else:
+                            flag = flag + 1
+
+                assert(len(range(start_ind, start_ind + (start_date_count * 3), start_date_count)) == 3)
+                for j in range(start_ind, start_ind + (start_date_count * 3), start_date_count):
+                    if my_data[j] == '__Dosage_Reason__' or '__Dosage_Reason__' in my_data[j-start_date_count:j]:
+                        if my_data[j] == '__Dosage_Reason__':
+                            start_ind_reason = j
+                        else:
+                            # Find out if you passed the boundary
+                            itemindex = my_data[j-start_date_count:j].index('__Dosage_Reason__')
+                            start_ind_reason = j-start_date_count+itemindex
+                            assert(my_data[start_ind_reason] == '__Dosage_Reason__')
+                        #entered_reason = True
+                        row = row + ['Missing']
+                        problem_row = True
+                    else:
+                        row = row + [my_data[j]]
+
+                if missing_end_and_start_date:
+                    start_ind_reason = start_ind_reason + inds_to_boundary
+                # i ranges from 0 to the number of start_dates (incl. missing)
+                # todo: fgure out if start_ind_reason - i + 1 or start_ind_reason + i - 1 makes more sense
+                if my_data[start_ind_reason - i + 1] != '__Dosage_Reason__':
+                    # the boundary has to be behind us in this case
+                    if '__Dosage_Reason__' not in my_data[start_ind_reason + i - (start_date_count * 3):start_ind_reason + i]:
+                        problem_rows = problem_rows + [[(len(rows) - 1)]]
+                        problem_row = False
+                        row = row + ['Too difficult to parse', 'Too difficult to parse']
+                        continue
+                    assert('__Dosage_Reason__' in my_data[start_ind_reason + i - (start_date_count*3):start_ind_reason + i])
+                    itemindex = my_data[start_ind_reason + i - (start_date_count*3):start_ind_reason + i].index('__Dosage_Reason__')
+                    start_ind_reason = start_ind_reason + i - (start_date_count*3) + itemindex
+                assert(len(range(start_ind_reason + i, (start_ind_reason + i) + (start_date_count * 2), start_date_count)) == 2)
+                for j in range(start_ind_reason + i, (start_ind_reason + i) + (start_date_count * 2), start_date_count):
+                    if j == start_ind_reason + 1:
+                        assert(my_data[j - 1] == '__Dosage_Reason__')
+                    row = row + [my_data[j]]
+                assert(len([pt_number_center, drug, end_date] + row) == len(col_names))
+                if '__Dosage_Reason__' in row:
+                    print('')
+                #assert('__Dosage_Reason__' not in row)
+                rows = rows + [[pt_number_center, drug, end_date] + row]
+                if problem_row:
+                    problem_rows = problem_rows + [[(len(rows)-1)]]
+                    problem_row = False
+
+
+        # Split the end_dates and add e
+        for ind in range(len(rows)):
+            if rows[ind][2] == 'start_date':
+                continue
+            end_dates = textwrap.wrap(rows[ind][2], 6)
+            assert([len(x) == 6 for x in end_dates])
+            rows[ind].insert(2, end_dates)
+            del rows[ind][3]
+
+        # Add only one of split dates to each row
+        row_ind = 0
+        while row_ind < len(rows):
+            if row_ind < 1 or row_ind >= len(rows)-1:
+                row_ind = row_ind + 1
+                continue
+            end_date_total = len(rows[row_ind][2])
+            for end_date_no in range(len(rows[row_ind][2])):
+                try:
+                    rows[row_ind + end_date_no][2] = rows[row_ind + end_date_no][2][end_date_no]
+                except:
+                    print("WARNING: Unexpected End_Date length on row " + str(row_ind + end_date_no) +
+                          " Using first available date here")
+                    rows[row_ind + end_date_no][2] = rows[row_ind + end_date_no][2][0]
+                    problem_rows = problem_rows + [[row_ind + end_date_no]]
+            row_ind = row_ind + end_date_total
+
+        output_file_name = fname[:-4]
+        output_file_name = output_file_name + '_csv.csv'
+        with open(output_file_name, "wb") as f:
+            writer = csv.writer(f)
+            writer.writerows(rows)
+
+        problems_file_name = fname[:-4]
+        problems_file_name = problems_file_name + '_problem_rows.csv'
+        with open(problems_file_name, "wb") as f:
+            writer = csv.writer(f)
+            writer.writerows(problem_rows)
+
+        # Display output
+        out_f = open(output_file_name, 'r')
+        with out_f:
+            data = out_f.read()
+            self.textEdit.setText(data)
+        w = QWidget()
+        QMessageBox.information(w, "Conversion Complete", "csv saved to " + output_file_name)
+        w = QWidget()
+        QMessageBox.information(w, "Conversion Complete", "Problem rows saved to " + problems_file_name)
+
+
 
     def eds_conversion(self):
         fname = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
                                                   '/home')
-
-        lol = list(csv.reader(open(fname, 'rb'), delimiter='\t'))
+        with open(fname, 'rt') as csvfile:
+            lol = list(csv.reader(csvfile, delimiter='\t'))
         lol = [item for sublist in lol for item in sublist]
         # Choose splitting criteria carefully... 2 spaces? 4 spaces?
         my_data = [x.split("  ") for x in lol]
         my_data = [item for sublist in my_data for item in sublist]
-        my_data = filter(None, my_data)
+        my_data = list(filter(None, my_data))
         # get rid of trailing whitespaces
         for ind in range(len(my_data)):
             my_data[ind] = my_data[ind].strip()
@@ -316,7 +588,7 @@ class MainWindow(QtGui.QMainWindow):
 
         [end_date_indices, end_date_count, dates_section] = [list(t) for t in zip(*end_date_counts)]
         [dosage_reason_boundaries_indices, dosage_reason_boundaries] = [list(t) for t in zip(*dosage_reason_boundaries)]
-        rows = [header] + zip(end_date_indices, end_date_count, dates_section, dosage_reason_boundaries_indices, dosage_reason_boundaries)
+        rows = [header] + list(zip(end_date_indices, end_date_count, dates_section, dosage_reason_boundaries_indices, dosage_reason_boundaries))
         output_file_name = fname[:-4]
         output_file_name = output_file_name + '_foundations.csv'
         with open(output_file_name, "wb") as f:
@@ -334,14 +606,14 @@ class MainWindow(QtGui.QMainWindow):
         with out_f:
             data = out_f.read()
             self.textEdit.setText(data)
-        # w = QWidget()
-        # QMessageBox.information(w, "IMPORTANT",
-        #                         "please check foundations are correct before continuing. csv saved to "
-        #                         + output_file_name)
-        # w = QWidget()
-        # QMessageBox.information(w, "EDS converted to preliminary csv",
-        #                         "Cross-reference foundations against the EDS csv saved to "
-        #                         + eds_mod_file_name)
+        w = QWidget()
+        QMessageBox.information(w, "Foundations saved",
+                                "foundations csv saved to "
+                                + output_file_name)
+        w = QWidget()
+        QMessageBox.information(w, "EDS converted to preliminary csv",
+                                "Modifed EDS generated. EDS csv saved to "
+                                + eds_mod_file_name)
 
         # clean the boundary and get something to compare dates against
         [dosage_reason_boundaries_cleaned, tacked_on] = zip(*self.clean_dosage_reason_boundary(dosage_reason_boundaries))
@@ -382,9 +654,10 @@ class MainWindow(QtGui.QMainWindow):
         # print('check complete')
         # print('all rows with values in tacked on are suspicious')
         #####
-        print('Retrieving drugs...')
+        print('Retrieving drugs and checking for patient IDs...')
         # retrieve the drugs
         drugs_rows = []
+        patient_IDs = [[my_data[0]]]
         for segment in zip(end_date_indices, dates_converted):
             if (len(segment[1]) % 2 == 0):
                 segment_count = (len(segment[1])/2)
@@ -392,7 +665,12 @@ class MainWindow(QtGui.QMainWindow):
                 # assume one value missing
                 segment_count = ((len(segment[1])+1) / 2)
             end_date_ind = segment[0]
-            drugs_rows = drugs_rows + [my_data[end_date_ind-segment_count:end_date_ind]]
+            drugs_rows = drugs_rows + my_data[end_date_ind-segment_count:end_date_ind]
+            if self.is_center_pt_number(my_data[end_date_ind-segment_count-1]):
+                print(my_data[end_date_ind - segment_count - 1])
+                patient_IDs = patient_IDs + [my_data[end_date_ind-segment_count-1]]
+            else:
+                patient_IDs = patient_IDs + [patient_IDs[-1]]
             # drug_row = []
             # for drug in my_data[end_date_ind-segment_count:end_date_ind]:
             #     drug_row = drug_row + [drug]
@@ -445,11 +723,12 @@ class MainWindow(QtGui.QMainWindow):
         print('Dose and Dosage retrieved')
         print('Collecting data... saving to csv...')
         # save to csv
-        header = ['drugs',
+        header = ['patient IDs',
+                  'drugs',
                   'dates',
                   'dose_dosage',
                   'reason_conclusion']
-        rows = [header] + zip(drugs_rows, dates_converted, dose_dosage_rows, reason_conclusion_rows)
+        rows = [header] + zip(patient_IDs, drugs_rows, dates_converted, dose_dosage_rows, reason_conclusion_rows)
 
         output_file_name = fname[:-4]
         output_file_name = output_file_name + '_preliminary.csv'
@@ -458,14 +737,14 @@ class MainWindow(QtGui.QMainWindow):
             writer.writerows(rows)
 
         # Display output
-        # out_f = open(output_file_name, 'r')
-        # with out_f:
-        #     data = out_f.read()
-        #     self.textEdit.setText(data)
-        #w = QWidget()
-        # QMessageBox.information(w, "ALMOST THERE",
-        #                         "If this file looks good a quick reshape should make everything fine."
-        #                         + output_file_name)
+        out_f = open(output_file_name, 'r')
+        with out_f:
+            data = out_f.read()
+            self.textEdit.setText(data)
+        w = QWidget()
+        QMessageBox.information(w, "ALMOST THERE",
+                                "If this file has everything right then we are very close."
+                                + output_file_name)
 
         # offset = -1
         # flag = True
@@ -496,11 +775,11 @@ class MainWindow(QtGui.QMainWindow):
 
         #reason_conclusion_boundaries = [x[0:offsets[i]] for i, x in enumerate(reason_conclusion_rows)]
         #reason_conclusion_boundaries = [str.split(x) for x in reason_conclusion_boundaries]
-        rows = zip(drugs_rows, dates_converted, dose_dosage_rows, reason_conclusion_rows_cleaned)
+        rows = zip(patient_IDs, drugs_rows, dates_converted, dose_dosage_rows, reason_conclusion_rows_cleaned)
         #self.reshape_for_kip(rows_mod, reason_conclusion_boundaries, fname)
 
 
-        header = ['drug', 'end_date', 'start_date', 'dose', 'dosage', 'reason', 'conclusion', 'problem']
+        header = ['patient_IDs', 'drug', 'end_date', 'start_date', 'dose', 'dosage', 'reason', 'conclusion', 'problem']
         output_file_name = fname[:-4]
         output_file_name = output_file_name + '_FINAL.csv'
         with open(output_file_name, "wb") as f:
@@ -510,37 +789,38 @@ class MainWindow(QtGui.QMainWindow):
             for row_no, row in enumerate(rows):
                 for i, drug in enumerate(row[0]):
                     problem = ''
+                    patient_ID = row[0]
                     try:
-                        end_date = row[1][i]
+                        end_date = row[2][i]
                     except:
                         problem = problem + ' problem in end date'
                         end_date = 'MISSING'
                     try:
-                        start_date = row[1][i+len(row[0])]
+                        start_date = row[2][i+len(row[1])]
                     except:
                         problem = problem + ' problem in start date'
                         start_date = 'MISSING'
                     try:
-                        dose = row[2][i]
+                        dose = row[3][i]
                     except:
                         problem = problem + ' problem in dose'
                         dose = 'MISSING'
                     try:
-                        dosage = row[2][i+len(row[0])]
+                        dosage = row[3][i+len(row[1])]
                     except:
                         problem = problem + ' problem in dosage'
                         dosage = 'MISSING'
                     try:
-                        reason = row[3][i]
+                        reason = row[4][i]
                     except:
                         problem = problem + ' problem in reason'
                         reason = 'MISSING'
                     try:
-                        conclusion = row[3][i+len(row[0])]
+                        conclusion = row[4][i+len(row[1])]
                     except:
                         problem = problem + ' problem in conclusion'
                         conclusion = 'MISSING'
-                    writer.writerow([drug, end_date, start_date, dose, dosage, reason, conclusion, problem])
+                    writer.writerow([patient_ID, drug, end_date, start_date, dose, dosage, reason, conclusion, problem])
 
         # Display output
         out_f = open(output_file_name, 'r')
@@ -549,7 +829,7 @@ class MainWindow(QtGui.QMainWindow):
             self.textEdit.setText(data)
         w = QWidget()
         QMessageBox.information(w, "Conversion Complete",
-                                "csv saved to "
+                                "Final csv saved to "
                                 + output_file_name)
 
 
@@ -685,6 +965,6 @@ if __name__ == '__main__':
     window = MainWindow()
     window.show()
     app.exec_()
-    closeInput = raw_input("Press ENTER to exit")
+    #closeInput = raw_input("Press ENTER to exit")
     print("Closing...")
     sys.exit(app.exec_())
