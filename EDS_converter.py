@@ -564,13 +564,13 @@ class MainWindow(QtGui.QMainWindow):
     def eds_conversion(self):
         fname = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
                                                   '/home')
-        with open(fname, 'rt') as csvfile:
-            lol = list(csv.reader(csvfile, delimiter='\t'))
+
+        lol = list(csv.reader(open(fname, 'rb'), delimiter='\t'))
         lol = [item for sublist in lol for item in sublist]
         # Choose splitting criteria carefully... 2 spaces? 4 spaces?
         my_data = [x.split("  ") for x in lol]
         my_data = [item for sublist in my_data for item in sublist]
-        my_data = list(filter(None, my_data))
+        my_data = filter(None, my_data)
         # get rid of trailing whitespaces
         for ind in range(len(my_data)):
             my_data[ind] = my_data[ind].strip()
@@ -588,7 +588,7 @@ class MainWindow(QtGui.QMainWindow):
 
         [end_date_indices, end_date_count, dates_section] = [list(t) for t in zip(*end_date_counts)]
         [dosage_reason_boundaries_indices, dosage_reason_boundaries] = [list(t) for t in zip(*dosage_reason_boundaries)]
-        rows = [header] + list(zip(end_date_indices, end_date_count, dates_section, dosage_reason_boundaries_indices, dosage_reason_boundaries))
+        rows = [header] + zip(end_date_indices, end_date_count, dates_section, dosage_reason_boundaries_indices, dosage_reason_boundaries)
         output_file_name = fname[:-4]
         output_file_name = output_file_name + '_foundations.csv'
         with open(output_file_name, "wb") as f:
@@ -606,14 +606,14 @@ class MainWindow(QtGui.QMainWindow):
         with out_f:
             data = out_f.read()
             self.textEdit.setText(data)
-        w = QWidget()
-        QMessageBox.information(w, "Foundations saved",
-                                "foundations csv saved to "
-                                + output_file_name)
-        w = QWidget()
-        QMessageBox.information(w, "EDS converted to preliminary csv",
-                                "Modifed EDS generated. EDS csv saved to "
-                                + eds_mod_file_name)
+        # w = QWidget()
+        # QMessageBox.information(w, "IMPORTANT",
+        #                         "please check foundations are correct before continuing. csv saved to "
+        #                         + output_file_name)
+        # w = QWidget()
+        # QMessageBox.information(w, "EDS converted to preliminary csv",
+        #                         "Cross-reference foundations against the EDS csv saved to "
+        #                         + eds_mod_file_name)
 
         # clean the boundary and get something to compare dates against
         [dosage_reason_boundaries_cleaned, tacked_on] = zip(*self.clean_dosage_reason_boundary(dosage_reason_boundaries))
@@ -667,7 +667,6 @@ class MainWindow(QtGui.QMainWindow):
             end_date_ind = segment[0]
             drugs_rows = drugs_rows + my_data[end_date_ind-segment_count:end_date_ind]
             if self.is_center_pt_number(my_data[end_date_ind-segment_count-1]):
-                print(my_data[end_date_ind - segment_count - 1])
                 patient_IDs = patient_IDs + [my_data[end_date_ind-segment_count-1]]
             else:
                 patient_IDs = patient_IDs + [patient_IDs[-1]]
@@ -737,14 +736,14 @@ class MainWindow(QtGui.QMainWindow):
             writer.writerows(rows)
 
         # Display output
-        out_f = open(output_file_name, 'r')
-        with out_f:
-            data = out_f.read()
-            self.textEdit.setText(data)
-        w = QWidget()
-        QMessageBox.information(w, "ALMOST THERE",
-                                "If this file has everything right then we are very close."
-                                + output_file_name)
+        # out_f = open(output_file_name, 'r')
+        # with out_f:
+        #     data = out_f.read()
+        #     self.textEdit.setText(data)
+        #w = QWidget()
+        # QMessageBox.information(w, "ALMOST THERE",
+        #                         "If this file looks good a quick reshape should make everything fine."
+        #                         + output_file_name)
 
         # offset = -1
         # flag = True
@@ -965,6 +964,6 @@ if __name__ == '__main__':
     window = MainWindow()
     window.show()
     app.exec_()
-    #closeInput = raw_input("Press ENTER to exit")
+    closeInput = raw_input("Press ENTER to exit")
     print("Closing...")
     sys.exit(app.exec_())
