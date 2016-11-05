@@ -511,7 +511,7 @@ class MainWindow(QtGui.QMainWindow):
         #self.reshape_for_kip(rows_mod, reason_conclusion_boundaries, fname)
 
 
-        header = ['patient_IDs', 'drug', 'end_date', 'start_date', 'dose', 'dosage', 'reason', 'conclusion', 'problem']
+        header = ['patient_IDs', 'drug', 'start_date', 'end_date', 'dose', 'dosage', 'reason', 'conclusion', 'problem']
         output_file_name = fname[:-4]
         output_file_name = output_file_name + '_FINAL.csv'
         with open(output_file_name, "wb") as f:
@@ -566,54 +566,54 @@ class MainWindow(QtGui.QMainWindow):
 
 
 
-    def reshape_for_kip(self, rows, reason_conclusion_boundaries, fname):
-        # format recieved by function
-        # header = ['drugs',
-        #           'dates',
-        #           'dose_dosage',
-        #           'reason_conclusion'] reason_conclusion has the boundary at the front
-
-        header = ['drug', 'end_date', 'start_date', 'dose', 'dosage', 'reason', 'conclusion', 'problem']
-        output_file_name = fname[:-4]
-        output_file_name = output_file_name + '_FINAL.csv'
-        with open(output_file_name, "wb") as f:
-            writer = csv.writer(f)
-            writer.writerow(header)
-
-            for row_no, row in enumerate(rows):
-                for i, drug in enumerate(row[0]):
-                    problem = ''
-                    try:
-                        end_date = row[1][i]
-                    except:
-                        problem = problem + 'problem in end date'
-                        end_date = 'MISSING'
-                    try:
-                        start_date = row[1][i+len(row[0])]
-                    except:
-                        problem = problem + 'problem in start date'
-                        start_date = 'MISSING'
-                    try:
-                        dose = row[2][i]
-                    except:
-                        problem = problem + 'problem in dose'
-                        dose = 'MISSING'
-                    try:
-                        dosage = row[2][i+len(row[0])]
-                    except:
-                        problem = problem + 'problem in dosage'
-                        dosage = 'MISSING'
-                    try:
-                        reason = row[3]
-                    except:
-                        problem = problem + 'problem in reason'
-                        reason = 'MISSING'
-                    try:
-                        conclusion = row[3][i+len(row[0])]
-                    except:
-                        problem = problem + 'problem in conclusion'
-                        conclusion = 'MISSING'
-                    writer.writerow([drug, end_date, start_date, dose, dosage, reason, conclusion, problem])
+    # def reshape_for_kip(self, rows, reason_conclusion_boundaries, fname):
+    #     # format recieved by function
+    #     # header = ['drugs',
+    #     #           'dates',
+    #     #           'dose_dosage',
+    #     #           'reason_conclusion'] reason_conclusion has the boundary at the front
+    #
+    #     header = ['drug', 'start_date', 'end_date', 'dose', 'dosage', 'reason', 'conclusion', 'problem']
+    #     output_file_name = fname[:-4]
+    #     output_file_name = output_file_name + '_FINAL.csv'
+    #     with open(output_file_name, "wb") as f:
+    #         writer = csv.writer(f)
+    #         writer.writerow(header)
+    #
+    #         for row_no, row in enumerate(rows):
+    #             for i, drug in enumerate(row[0]):
+    #                 problem = ''
+    #                 try:
+    #                     end_date = row[1][i]
+    #                 except:
+    #                     problem = problem + 'problem in end date'
+    #                     end_date = 'MISSING'
+    #                 try:
+    #                     start_date = row[1][i+len(row[0])]
+    #                 except:
+    #                     problem = problem + 'problem in start date'
+    #                     start_date = 'MISSING'
+    #                 try:
+    #                     dose = row[2][i]
+    #                 except:
+    #                     problem = problem + 'problem in dose'
+    #                     dose = 'MISSING'
+    #                 try:
+    #                     dosage = row[2][i+len(row[0])]
+    #                 except:
+    #                     problem = problem + 'problem in dosage'
+    #                     dosage = 'MISSING'
+    #                 try:
+    #                     reason = row[3]
+    #                 except:
+    #                     problem = problem + 'problem in reason'
+    #                     reason = 'MISSING'
+    #                 try:
+    #                     conclusion = row[3][i+len(row[0])]
+    #                 except:
+    #                     problem = problem + 'problem in conclusion'
+    #                     conclusion = 'MISSING'
+    #                 writer.writerow([drug, end_date, start_date, dose, dosage, reason, conclusion, problem])
 
 
         # end_dates = []
