@@ -270,8 +270,13 @@ class MainWindow(QtGui.QMainWindow):
                              one_digit_special_condition):
 
                     if ind - date_count_ind > date_count * 6:
-                        dosage_reason_boundaries = dosage_reason_boundaries + [(ind, my_data[ind]
+                        imaginary_boundary_ind = date_count_ind + (date_count * 6)
+                        dosage_reason_boundaries = dosage_reason_boundaries + \
+                                                   [(imaginary_boundary_ind, my_data[imaginary_boundary_ind]
                         + " SKIPPING WHOLE SECTION")]
+
+                        # dosage_reason_boundaries = dosage_reason_boundaries + [(ind, my_data[ind]
+                        #                                                         + " SKIPPING WHOLE SECTION")]
 
                         # Patterns identified:
                         # 1. Right after end_date often the next date only has 5 characters
