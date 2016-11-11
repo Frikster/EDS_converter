@@ -50,6 +50,8 @@ class MainWindow(QtGui.QMainWindow):
         self.show()
 
     def is_center_pt_number(self, elem):
+        if '029401' in elem:
+            print('')
         if '-' in elem:
             elem_split = elem.split('-')
             if len(elem_split[0]) != 6:
@@ -61,8 +63,9 @@ class MainWindow(QtGui.QMainWindow):
             try:
                 pt_number = int(elem_split[1])
             except ValueError:
-                if len(elem_split[1]) > 0:
-                    return True
+                return True
+                # if len(elem_split[1]) > 0:
+                #     return True
         return False
 
     def find_boundaries(self, my_data):
@@ -83,6 +86,8 @@ class MainWindow(QtGui.QMainWindow):
 
             # First find a candidate end_date since you'll hit it first
             elem = my_data[ind]
+            if '3 3 1 1 1 6 1 3 1' == elem:
+                print('')
             elem_6_split = [elem[i:i + 6] for i in range(0, len(elem), 6)]
             elem_6_split_isdigit = [i.isdigit() for i in elem_6_split] # True False for each one
             elem_6_split_digits = [i for i in elem_6_split if i.isdigit()]
@@ -189,8 +194,8 @@ class MainWindow(QtGui.QMainWindow):
                         break
 
                 # CRITERIA are DEBATEABLE!!!
-                number_parts_with_digits_threshold = len(boundary_has_digit_strings_list) > 0 \
-                                                     and hasNumbers(boundary_has_digit_strings_list[0])
+                number_parts_with_digits_threshold = len(boundary_has_digit_list) > 0 \
+                                                     and hasNumbers(boundary_has_digit_list[0])
                 alone_numbers_1to8 = all(0 < int(i) < 9 for i in boundary_digits_list) \
                                      and len(boundary_digits_list) > 0
                 only_numbers_and6_and1to8 = (len(remove_spaces_elem) < 6 and remove_spaces_elem.isdigit()) \
@@ -258,7 +263,7 @@ class MainWindow(QtGui.QMainWindow):
                 # 7. 01194: end_date should be 'U'
                 # 8. Sometimes there is a combo problem 1 3 3 1U  1 1 <- two spaces + letter in middle
 
-                if  (only_numbers_and6_and1to8 and one_digit_special_condition) or \
+                if (only_numbers_and6_and1to8 and one_digit_special_condition) or \
                         (alone_numbers_1to8 and alone_strings_len and
                              space_threshold_met and no_not_boundaries and
                              number_parts_with_digits_threshold and first_first_char_is_digit and
@@ -398,7 +403,16 @@ class MainWindow(QtGui.QMainWindow):
             if self.is_center_pt_number(my_data[end_date_ind-segment_count-1]):
                 patient_IDs = patient_IDs + [my_data[end_date_ind-segment_count-1]]
             else:
-                patient_IDs = patient_IDs + [patient_IDs[-1]]
+                # go back till you find the first patient_ID
+                # todo: add check here in case it goes back and somehow goes before the most recent one
+                not_found = True
+                i = 1
+                while(not_found):
+                    if self.is_center_pt_number(my_data[end_date_ind - segment_count - i]):
+                        not_found = False
+                        patient_IDs = patient_IDs + [my_data[end_date_ind - segment_count - i]]
+                    else:
+                        i = i + 1
         assert(len(drugs_rows) == len(patient_IDs))
 
             # drug_row = []
