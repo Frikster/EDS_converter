@@ -269,8 +269,19 @@ class MainWindow(QtGui.QMainWindow):
                              number_parts_with_digits_threshold and first_first_char_is_digit and
                              one_digit_special_condition):
 
+                    # NOTE: date_count is the number of date elem, NOT the number of dates. (i.e. date_count = 3 for [123456123456,12345612356,123456]
                     if ind - date_count_ind > date_count * 6:
-                        imaginary_boundary_ind = date_count_ind + (date_count * 6)
+                        # quickly and dirtily find how many dates you have
+                        date_segment = my_data[date_counts[-1][0]:date_counts[-1][0]+date_count]
+                        real_date_count = 0
+                        for date in date_segment:
+                            if date in date_replacements:
+                                real_date_count = real_date_count + 1
+                            else:
+                                if date.isdigit():
+                                    real_date_count = real_date_count + (len(date)/6)
+                        # my_date[imaginary_boundary_ind] "should" contain where the boundary "would" be without issues
+                        imaginary_boundary_ind = (date_count_ind+date_count) + ((real_date_count/2) * 2)
                         dosage_reason_boundaries = dosage_reason_boundaries + \
                                                    [(imaginary_boundary_ind, my_data[imaginary_boundary_ind]
                         + " SKIPPING WHOLE SECTION")]
@@ -384,7 +395,7 @@ class MainWindow(QtGui.QMainWindow):
 
         #boundary_lengths = [len(x) for x in dosage_reason_boundaries_cleaned]
         # check date lengths and boundary lengths match
-        ####
+        #####
         # for i in range(len(dates_section)):
         #     if((len(dates_converted[i])/2) != boundary_lengths[i] and
         #     not (len(dates_converted[i]) == 1 and boundary_lengths[i] == 1)):
