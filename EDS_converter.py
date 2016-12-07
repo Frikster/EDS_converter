@@ -86,7 +86,7 @@ class MainWindow(QtGui.QMainWindow):
 
             # First find a candidate end_date since you'll hit it first
             elem = my_data[ind]
-            if '3 3 1 1 1 6 1 3 1' == elem:
+            if '062992062892071792070192070392070492070892071092071492071792' == elem:
                 print('')
             elem_6_split = [elem[i:i + 6] for i in range(0, len(elem), 6)]
             elem_6_split_isdigit = [i.isdigit() for i in elem_6_split] # True False for each one
@@ -95,6 +95,8 @@ class MainWindow(QtGui.QMainWindow):
 
             ##########################################################################
             #### Weak case, if the following is minimally true we have an end_date ###
+
+
             if len(elem) >= 6 and\
                 True in elem_6_split_isdigit and\
                 max(map(len, elem_6_split_digits)) >= 6 and\
@@ -136,7 +138,7 @@ class MainWindow(QtGui.QMainWindow):
                                         my_data = my_data[:ind-1] + [candidate, the_rest] + my_data[ind:]
                                     else:
                                         print(my_data[ind - 5:ind + 5])
-                                        unsolvable_problem =  True
+                                        unsolvable_problem = True
                                     break
                                     # note candidate is still at ind, so okay to split in a loop
                             if not unsolvable_problem:
@@ -269,17 +271,18 @@ class MainWindow(QtGui.QMainWindow):
                              number_parts_with_digits_threshold and first_first_char_is_digit and
                              one_digit_special_condition):
 
+                    # quickly and dirtily find how many dates you have
+                    date_segment = my_data[date_counts[-1][0]:date_counts[-1][0] + date_count]
+                    real_date_count = 0
+                    for date in date_segment:
+                        if date in date_replacements:
+                            real_date_count = real_date_count + 1
+                        else:
+                            if date.isdigit():
+                                real_date_count = real_date_count + (len(date) / 6)
                     # NOTE: date_count is the number of date elem, NOT the number of dates. (i.e. date_count = 3 for [123456123456,12345612356,123456]
-                    if ind - date_count_ind > date_count * 6:
-                        # quickly and dirtily find how many dates you have
-                        date_segment = my_data[date_counts[-1][0]:date_counts[-1][0]+date_count]
-                        real_date_count = 0
-                        for date in date_segment:
-                            if date in date_replacements:
-                                real_date_count = real_date_count + 1
-                            else:
-                                if date.isdigit():
-                                    real_date_count = real_date_count + (len(date)/6)
+                    # todo: remove implicit assumption in line below that there are no missing dates...
+                    if ind - date_count_ind > (real_date_count/2) * 4:
                         # my_date[imaginary_boundary_ind] "should" contain where the boundary "would" be without issues
                         imaginary_boundary_ind = (date_count_ind+date_count) + ((real_date_count/2) * 2)
                         dosage_reason_boundaries = dosage_reason_boundaries + \
