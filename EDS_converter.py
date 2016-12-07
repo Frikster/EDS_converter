@@ -79,7 +79,9 @@ class MainWindow(QtGui.QMainWindow):
         end_dates = [] #all end_dates in the form [(index,end_date),()...]
         candidate_end_date_for_set = ''
         ind_plusone_flag = False
-        for ind in range(len(my_data)):
+        ind = -1
+        while ind < len(my_data):
+            ind = ind + 1
             if ind_plusone_flag:
                 ind_plusone_flag = False
                 continue
@@ -285,6 +287,7 @@ class MainWindow(QtGui.QMainWindow):
                     if ind - date_count_ind > (real_date_count/2) * 4:
                         # my_date[imaginary_boundary_ind] "should" contain where the boundary "would" be without issues
                         imaginary_boundary_ind = (date_count_ind+date_count) + ((real_date_count/2) * 2)
+                        ind = imaginary_boundary_ind
                         dosage_reason_boundaries = dosage_reason_boundaries + \
                                                    [(imaginary_boundary_ind, my_data[imaginary_boundary_ind]
                         + " SKIPPING WHOLE SECTION")]
