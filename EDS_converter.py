@@ -25,6 +25,21 @@ def hasNumbers(inputString):
     else:
         return any(char.isdigit() for char in inputString)
 
+def is_center_pt_number(elem):
+    if '-' in elem:
+        elem_split = elem.split('-')
+        if len(elem_split[0]) != 6:
+            return False
+        try:
+            center = int(elem_split[0])
+        except ValueError:
+            return False
+        try:
+            pt_number = int(elem_split[1])
+        except ValueError:
+            return True
+    return False
+
 class MainWindow(QtGui.QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
@@ -49,25 +64,6 @@ class MainWindow(QtGui.QMainWindow):
         self.setWindowTitle('EDS Converter')
         self.show()
 
-    def is_center_pt_number(self, elem):
-        if '029401' in elem:
-            print('')
-        if '-' in elem:
-            elem_split = elem.split('-')
-            if len(elem_split[0]) != 6:
-                return False
-            try:
-                center = int(elem_split[0])
-            except ValueError:
-                return False
-            try:
-                pt_number = int(elem_split[1])
-            except ValueError:
-                return True
-                # if len(elem_split[1]) > 0:
-                #     return True
-        return False
-
     def find_boundaries(self, my_data):
         #assume my_data has been stripped
         date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.', 'CONTINUE', 'CONTINUED', 'CONTINUES',
@@ -79,6 +75,7 @@ class MainWindow(QtGui.QMainWindow):
         end_dates = [] #all end_dates in the form [(index,end_date),()...]
         candidate_end_date_for_set = ''
         ind_plusone_flag = False
+        pat_flag = False
         for ind in range(len(my_data)):
             if ind_plusone_flag:
                 ind_plusone_flag = False
@@ -86,7 +83,11 @@ class MainWindow(QtGui.QMainWindow):
 
             # First find a candidate end_date since you'll hit it first
             elem = my_data[ind]
-            if '3 3 1 1 1 6 1 3 1' == elem:
+            # todo: DEBUGGING - PLACE PATIENT NUMBER HERE TO BREAKPOINT THERE AND THEN SPECIFIC ELEMENT IN PAT # BEING DEBUGGED
+            if '190201-ABCDEFGHI' == elem:
+                pat_flag = True
+                print('')
+            if pat_flag and elem == 'NEOSYNEPHRINE':
                 print('')
             elem_6_split = [elem[i:i + 6] for i in range(0, len(elem), 6)]
             elem_6_split_isdigit = [i.isdigit() for i in elem_6_split] # True False for each one
@@ -98,7 +99,7 @@ class MainWindow(QtGui.QMainWindow):
             if len(elem) >= 6 and\
                 True in elem_6_split_isdigit and\
                 max(map(len, elem_6_split_digits)) >= 6 and\
-                not self.is_center_pt_number(elem) and\
+                not is_center_pt_number(elem) and\
                 '-' not in elem and \
                 candidate_end_date_for_set == '' and \
                 n_spaces < 2 and \
@@ -163,16 +164,40 @@ class MainWindow(QtGui.QMainWindow):
                     date_count_ind = ind
                 count = 0
                 while True:
+                    # split each date
                     elem_6_split = [my_data[date_count_ind][i:i + 6] for i in range(0, len(my_data[date_count_ind]), 6)]
-                    elem_6_split_dates = [i for i in elem_6_split if i.isdigit() and len(i) >= 6]
+                    elem_6_split_dates = [j for j in elem_6_split if j.isdigit() and len(j) >= 6]
                     if (len(elem_6_split_dates) > 0 and len(my_data[date_count_ind]) >= 6) or\
                                     my_data[date_count_ind] in date_replacements:
-                        count = count + 1
+                        if my_data[date_count_ind] in date_replacements:
+                            count = count + 1
+                        else:
+                            count = count + len(elem_6_split)
                         date_count_ind = date_count_ind + 1
                     else:
                         break
                 date_counts = date_counts + [(ind, count, my_data[date_count_ind-count:date_count_ind])]
                 date_count_ind, date_count = date_counts[-1][0], date_counts[-1][1]
+
+            ##########################################
+            ### Count number of dates for this set ###
+            # if ind_plusone_flag:
+            #     date_count_ind = ind + 1
+            # else:
+            #     date_count_ind = ind
+            # count = 0
+            # while True:
+            #     # split each date
+            #     elem_6_split = [my_data[date_count_ind][i:i + 6] for i in range(0, len(my_data[date_count_ind]), 6)]
+            #     elem_6_split_dates = [j for j in elem_6_split if j.isdigit() and len(j) >= 6]
+            #     if (len(elem_6_split_dates) > 0 and len(my_data[date_count_ind]) >= 6) or \
+            #                     my_data[date_count_ind] in date_replacements:
+            #         count = count + 1
+            #         date_count_ind = date_count_ind + 1
+            #     else:
+            #         break
+            # date_counts = date_counts + [(ind, count, my_data[date_count_ind - count:date_count_ind])]
+            # date_count_ind, date_count = date_counts[-1][0], date_counts[-1][1]
 
             ##############################
             ### Check for the boundary ###
@@ -317,7 +342,7 @@ class MainWindow(QtGui.QMainWindow):
         # Delete all empty elements
         my_data = [val for val in my_data if val != '']
 
-        [end_date_counts, dosage_reason_boundaries, my_data] = self.find_boundaries(my_data)
+        [date_counts, dosage_reason_boundaries, my_data] = self.find_boundaries(my_data)
 
         header = ['end_date indices in EDS',
                   'end_date counts',
@@ -325,9 +350,9 @@ class MainWindow(QtGui.QMainWindow):
                   'dosage_reason_boundary indices in EDS',
                   'dosage_reason_boundaries']
 
-        [end_date_indices, end_date_count, dates_section] = [list(t) for t in zip(*end_date_counts)]
+        [end_date_indices, date_count, dates_section] = [list(t) for t in zip(*date_counts)]
         [dosage_reason_boundaries_indices, dosage_reason_boundaries] = [list(t) for t in zip(*dosage_reason_boundaries)]
-        rows = [header] + zip(end_date_indices, end_date_count, dates_section, dosage_reason_boundaries_indices, dosage_reason_boundaries)
+        rows = [header] + zip(end_date_indices, date_count, dates_section, dosage_reason_boundaries_indices, dosage_reason_boundaries)
         output_file_name = fname[:-4]
         output_file_name = output_file_name + '_foundations.csv'
         with open(output_file_name, "wb") as f:
@@ -382,7 +407,7 @@ class MainWindow(QtGui.QMainWindow):
         print('Dates retrieved.')
         print('Checking that date count matches boundary lengths')
 
-        #boundary_lengths = [len(x) for x in dosage_reason_boundaries_cleaned]
+        # boundary_lengths = [len(x) for x in dosage_reason_boundaries_cleaned]
         # check date lengths and boundary lengths match
         ####
         # for i in range(len(dates_section)):
@@ -405,7 +430,7 @@ class MainWindow(QtGui.QMainWindow):
                 segment_count = ((len(segment[1])+1) / 2)
             end_date_ind = segment[0]
             drugs_rows = drugs_rows + [my_data[end_date_ind-segment_count:end_date_ind]]
-            if self.is_center_pt_number(my_data[end_date_ind-segment_count-1]):
+            if is_center_pt_number(my_data[end_date_ind-segment_count-1]):
                 patient_IDs = patient_IDs + [my_data[end_date_ind-segment_count-1]]
             else:
                 # go back till you find the first patient_ID
@@ -413,7 +438,7 @@ class MainWindow(QtGui.QMainWindow):
                 not_found = True
                 i = 1
                 while(not_found):
-                    if self.is_center_pt_number(my_data[end_date_ind - segment_count - i]):
+                    if is_center_pt_number(my_data[end_date_ind - segment_count - i]):
                         not_found = False
                         patient_IDs = patient_IDs + [my_data[end_date_ind - segment_count - i]]
                     else:
@@ -431,7 +456,7 @@ class MainWindow(QtGui.QMainWindow):
         print('Retrieving Dose and Dosage...')
         # retrieve dose and dosage
         dose_dosage_rows = []
-        for segment in zip(end_date_indices, end_date_count, dosage_reason_boundaries_indices):
+        for segment in zip(end_date_indices, date_count, dosage_reason_boundaries_indices):
             # segment_count = (len(segment[1])/2)
             segment_start = segment[0] + segment[1]
             segment_end = segment[2]
@@ -471,7 +496,7 @@ class MainWindow(QtGui.QMainWindow):
             # for reason_conclusion in my_data[segment_start:segment_start + (segment_count*2)]:
             #     reason_conclusion_row = reason_conclusion_row + [reason_conclusion]
             # reason_conclusion_rows = reason_conclusion_rows + [reason_conclusion_row]
-        print('Dose and Dosage retrieved')
+        print('Reason and Conclusion retrieved')
         print('Collecting data... saving to csv...')
         # save to csv
         header = ['patient IDs',
