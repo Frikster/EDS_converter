@@ -25,7 +25,11 @@ def hasNumbers(inputString):
     else:
         return any(char.isdigit() for char in inputString)
 
+date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.', 'CONTINUE', 'CONTINUED', 'CONTINUES',
+                     'N/A']
+
 class MainWindow(QtGui.QMainWindow):
+
     def __init__(self):
         super(MainWindow, self).__init__()
         self.initUI()
@@ -52,26 +56,31 @@ class MainWindow(QtGui.QMainWindow):
     def is_center_pt_number(self, elem):
         if '029401' in elem:
             print('')
+
+        if len(elem) <= 6 or " u" in elem or " U" in elem:
+            return False
+
+        if not elem[0:6].isdigit():
+            return False
+        if elem[6:12].isdigit():
+            return False
+
+        for date_replacement in date_replacements:
+            if date_replacement in elem[6:12] and len(date_replacement) > 1:
+                return False
+
         if '-' in elem:
             elem_split = elem.split('-')
-            if len(elem_split[0]) != 6:
+            if not elem_split[0][0:6].isdigit():
                 return False
-            try:
-                center = int(elem_split[0])
-            except ValueError:
+            if elem_split[1].isdigit():
                 return False
-            try:
-                pt_number = int(elem_split[1])
-            except ValueError:
-                return True
-                # if len(elem_split[1]) > 0:
-                #     return True
-        return False
+
+        return True
 
     def find_boundaries(self, my_data):
         #assume my_data has been stripped
-        date_replacements = ['CON', 'U', 'CONT', 'UNK', 'NAV', 'C', 'CONT.', 'CONTINUE', 'CONTINUED', 'CONTINUES',
-                             'N/A']
+
         not_date_identification = ['ABCDE', 'ABCD', 'BCDE']
 
         date_counts = []
@@ -80,7 +89,7 @@ class MainWindow(QtGui.QMainWindow):
         candidate_end_date_for_set = ''
         ind_plusone_flag = False
         ind = -1
-        while ind < len(my_data):
+        while ind < len(my_data)-1:
             ind = ind + 1
             if ind_plusone_flag:
                 ind_plusone_flag = False
@@ -88,7 +97,7 @@ class MainWindow(QtGui.QMainWindow):
 
             # First find a candidate end_date since you'll hit it first
             elem = my_data[ind]
-            if '062992062892071792070192070392070492070892071092071492071792' == elem:
+            if '019704A-' == elem:
                 print('')
             elem_6_split = [elem[i:i + 6] for i in range(0, len(elem), 6)]
             elem_6_split_isdigit = [i.isdigit() for i in elem_6_split] # True False for each one
@@ -137,7 +146,7 @@ class MainWindow(QtGui.QMainWindow):
                                     # correct my_data's end_date
                                     the_rest = elem_6_split[i:][0]
                                     if the_rest in date_replacements:
-                                        my_data = my_data[:ind-1] + [candidate, the_rest] + my_data[ind:]
+                                        my_data = my_data[:ind-1] + [candidate, the_rest] + my_data[ind:] #todo: see whether this throws off the indexing
                                     else:
                                         print(my_data[ind - 5:ind + 5])
                                         unsolvable_problem = True
@@ -315,7 +324,8 @@ class MainWindow(QtGui.QMainWindow):
         assert(len(date_counts) == len(dosage_reason_boundaries))
         return [date_counts, dosage_reason_boundaries, my_data]
 
-
+    def find_group_index_boundaries(self, my_data):
+        return my_data
 
     def eds_conversion(self):
         fname = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
@@ -602,7 +612,7 @@ class MainWindow(QtGui.QMainWindow):
         QMessageBox.information(w, "Conversion Complete",
                                 "Final csv saved to "
                                 + output_file_name)
-
+        print("DONE")
 
 
     # def reshape_for_kip(self, rows, reason_conclusion_boundaries, fname):
